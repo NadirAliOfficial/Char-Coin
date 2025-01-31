@@ -1,7 +1,3 @@
-Here is the updated **README file** without contributors, license, or contact details, ensuring it's structured for a **private repository**.
-
----
-
 # **CHAR Coin Smart Contract (Solana)**
 ## **Revolutionizing Crypto with Transparent Donations, Staking & Governance**
 
