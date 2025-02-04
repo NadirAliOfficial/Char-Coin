@@ -4,6 +4,9 @@ version = "0.1.0"
 description = "Created with Anchor"
 edition = "2021"
 
+[workspace]
+resolver = "2"
+
 [lib]
 crate-type = ["cdylib", "lib"]
 name = "charcoin"

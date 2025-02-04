@@ -20,9 +20,6 @@ Cargo.lock
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-# Ignore Rust build directory
-target/
-
 # Ignore Node modules (if applicable)
 
 node_modules/
