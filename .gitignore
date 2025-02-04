@@ -24,6 +24,7 @@ Cargo.lock
 target/
 
 # Ignore Node modules (if applicable)
+
 node_modules/
 
 # Ignore log files
