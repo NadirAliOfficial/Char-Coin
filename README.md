@@ -26,24 +26,7 @@ This repository contains the **Solana smart contract** for CHAR Coin, implementi
 
 ## **📂 Project Structure**
 ```
-char-coin-smart-contract/
-│── programs/                 # Smart contract programs
-│   ├── char_coin/            # Main CHAR Coin contract
-│   │   ├── src/
-│   │   │   ├── lib.rs        # Main contract logic
-│   │   │   ├── burn.rs       # Token burn mechanism
-│   │   │   ├── staking.rs    # Staking contract logic
-│   │   │   ├── governance.rs # DAO voting system
-│   │   │   ├── rewards.rs    # Monthly & annual reward distribution
-│   │   │   ├── donation.rs   # Donation fund allocation
-│   │   │   ├── security.rs   # Emergency halt & multisig security
-│   │   ├── Cargo.toml        # Rust package dependencies
-│── tests/                    # Smart contract unit tests
-│── migrations/               # Deployment scripts
-│── README.md                 # Project documentation
-│── Cargo.toml                # Project dependencies
-│── Anchor.toml               # Anchor configuration file
-│── solana.config.json        # Solana blockchain config
+c 
 ```
 
 ---
