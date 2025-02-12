@@ -2,16 +2,16 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token};
 
-
 // Import our modules.
 pub mod burn;
 pub mod staking;
-// use crate::staking::{StakeTokens, UnstakeTokens, LockupPeriod};
 pub use staking::*;
 
 
-// pub use staking::*;
-mod governance;
+pub mod governance;
+pub use governance::*;
+
+// pub use governance::*;
 mod rewards;
 mod donation;
 mod security;
@@ -104,9 +104,29 @@ pub mod char_coin {
         burn::process_burn(ctx, amount)
     }
 
+    // Governance
+    pub fn create_governance_proposal(
+        ctx: Context<SubmitProposal>, // Use struct directly
+        title: String,
+        description: String,
+        duration: i64
+    ) -> Result<()> {
+        governance::submit_proposal(ctx, title, description, duration)
+    }
 
+    pub fn cast_vote(
+        ctx: Context<VoteOnProposal>, // Use struct directly
+        proposal_id: u64,
+        vote_choice: bool,
+        amount_staked: u64
+    ) -> Result<()> {
+        governance::vote_on_proposal(ctx, proposal_id, vote_choice, amount_staked)
+    }
+
+    pub fn conclude_proposal(ctx: Context<FinalizeProposal>) -> Result<()> {
+        governance::finalize_proposal(ctx)
+    }
 }
-
 /// Event to log supply updates.
 #[event]
 pub struct SupplyUpdated {
