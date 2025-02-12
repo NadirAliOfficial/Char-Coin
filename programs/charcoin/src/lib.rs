@@ -2,9 +2,15 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token};
 
+
 // Import our modules.
-mod burn;
-mod staking;
+pub mod burn;
+pub mod staking;
+// use crate::staking::{StakeTokens, UnstakeTokens, LockupPeriod};
+pub use staking::*;
+
+
+// pub use staking::*;
 mod governance;
 mod rewards;
 mod donation;
@@ -27,6 +33,21 @@ pub mod char_coin {
         Ok(())
     }
 
+
+     /// Stake tokens with a specified lockup duration.
+     pub fn stake_tokens_handler(
+        ctx: Context<StakeTokens>,
+        amount: u64,
+        lockup: LockupPeriod,
+    ) -> Result<()> {
+        staking::stake_tokens(ctx, amount, lockup)
+    }
+
+    /// Unstake tokens after the lockup period has expired.
+    pub fn unstake_tokens_handler(ctx: Context<UnstakeTokens>) -> Result<()> {
+        staking::unstake_tokens(ctx)
+    }
+    
     /// Mint new tokens.
     pub fn mint_tokens(ctx: Context<MintTokens>, amount: u64) -> Result<()> {
         let cpi_accounts = token::MintTo {
@@ -82,6 +103,8 @@ pub mod char_coin {
     pub fn burn_tokens(ctx: Context<BurnTokens>, amount: u64) -> Result<()> {
         burn::process_burn(ctx, amount)
     }
+
+
 }
 
 /// Event to log supply updates.

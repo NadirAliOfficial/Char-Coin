@@ -1,7 +1,7 @@
 // programs/char_coin/src/burn.rs
 
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Burn, Token};
+use anchor_spl::token::{self, Burn};
 
 use crate::BurnTokens;
 
