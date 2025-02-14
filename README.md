@@ -24,13 +24,6 @@ This repository contains the **Solana smart contract** for CHAR Coin, implementi
 
 ---
 
-## **📂 Project Structure**
-```
-c 
-```
-
----
-
 ## **⚡ Installation & Setup**
 ### **1️⃣ Prerequisites**
 Before running the CHAR Coin smart contract, ensure you have:

@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Burn, Token, Transfer};
-
+use crate::BurnTracker; 
 use crate::ErrorCode;
 
 #[derive(Accounts)]
@@ -17,8 +17,12 @@ pub struct ExecuteBuyback<'info> {
     pub burn_wallet: UncheckedAccount<'info>,
     /// CHECK: Authority to burn tokens from the burn wallet (typically a PDA).
     pub burn_authority: UncheckedAccount<'info>,
+    /// This account tracks total tokens burned.
+    #[account(mut)]
+    pub burn_tracker: Account<'info, BurnTracker>,
     pub token_program: Program<'info, Token>,
 }
+
 
 
 pub fn execute_buyback(
@@ -59,4 +63,12 @@ pub fn execute_buyback(
         tokens_to_buy
     );
     Ok(())
+}
+
+#[event]
+pub struct BuybackBurnEvent {
+    pub fee_amount: u64,
+    pub tokens_bought: u64,
+    pub new_total_burned: u64,
+    pub timestamp: i64,
 }

@@ -54,3 +54,11 @@ pub fn verify_multisig(ctx: &Context<ExecuteMultisig>) -> Result<()> {
     msg!("Multisig approval successful with {} valid signers.", valid_signers);
     Ok(())
 }
+
+
+
+#[account]
+pub struct BurnTracker {
+    /// The total number of tokens burned.
+    pub total_burned: u64,
+}

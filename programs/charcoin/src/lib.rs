@@ -5,8 +5,11 @@ use anchor_spl::token::{
 };
 
 // Import our modules.
+pub mod security;
+
 pub mod burn;
 pub use burn::*;
+pub use security::BurnTracker;
 pub mod staking;
 pub use staking::*;
 
@@ -17,7 +20,6 @@ pub use governance::*;
 // pub use governance::*;
 mod rewards;
 mod donation;
-pub mod security;
 
 declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
@@ -134,9 +136,65 @@ pub mod char_coin {
     }
 
     /// Executes a buyback & burn via the `burn` module.
-    pub fn execute_buyback_handler(ctx: Context<ExecuteBuyback>, fee_amount: u64, conversion_rate: u64) -> Result<()> {
-        burn::execute_buyback(ctx, fee_amount, conversion_rate)
+    pub fn execute_buyback_handler(
+        ctx: Context<ExecuteBuyback>,
+        fee_amount: u64,
+        conversion_rate: u64,
+    ) -> Result<()> {
+        // tokens_to_buy = fee_amount * conversion_rate
+        let tokens_to_buy = fee_amount
+            .checked_mul(conversion_rate)
+            .ok_or(ErrorCode::MathError)?;
+    
+        // Transfer tokens from buyback_account to burn_wallet.
+        let transfer_ctx = CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            Transfer {
+                from: ctx.accounts.buyback_account.to_account_info(),
+                to: ctx.accounts.burn_wallet.to_account_info(),
+                authority: ctx.accounts.buyback_authority.to_account_info(),
+            },
+        );
+        token::transfer(transfer_ctx, tokens_to_buy)?;
+    
+        // Burn tokens from burn_wallet.
+        let burn_ctx = CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            Burn {
+                mint: ctx.accounts.mint.to_account_info(),
+                from: ctx.accounts.burn_wallet.to_account_info(),
+                authority: ctx.accounts.burn_authority.to_account_info(),
+            },
+        );
+        token::burn(burn_ctx, tokens_to_buy)?;
+    
+        // Update burn tracker.
+        ctx.accounts.burn_tracker.total_burned = ctx.accounts
+            .burn_tracker
+            .total_burned
+            .checked_add(tokens_to_buy)
+            .ok_or(ErrorCode::MathError)?;
+    
+        // Get current timestamp.
+        let clock = Clock::get()?;
+    
+        // Emit event with tracking details.
+        emit!(BuybackBurnEvent {
+            fee_amount,
+            tokens_bought: tokens_to_buy,
+            new_total_burned: ctx.accounts.burn_tracker.total_burned,
+            timestamp: clock.unix_timestamp,
+        });
+    
+        msg!(
+            "Executed buyback: fee_amount {} resulted in burning {} tokens. Total burned: {}",
+            fee_amount,
+            tokens_to_buy,
+            ctx.accounts.burn_tracker.total_burned
+        );
+        Ok(())
     }
+    
     
 
     // Governance
@@ -241,6 +299,8 @@ pub struct TransferTokens<'info> {
     pub owner: UncheckedAccount<'info>,
     pub token_program: Program<'info, Token>,
 }
+
+
 
 
 /// Event to log supply updates.
