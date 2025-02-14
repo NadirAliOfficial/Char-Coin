@@ -17,7 +17,7 @@ pub use governance::*;
 // pub use governance::*;
 mod rewards;
 mod donation;
-mod security;
+pub mod security;
 
 declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
