@@ -1,4 +1,5 @@
 #![allow(unexpected_cfgs)]
+#[allow(ambiguous_glob_reexports)]
 use anchor_lang::prelude::*;
 use anchor_spl::token::{
     self, Burn, MintTo, Token, Transfer,
@@ -6,10 +7,12 @@ use anchor_spl::token::{
 
 // Import our modules.
 pub mod security;
+pub use security::*;
+pub use security::initialize_multisig as security_initialize_multisig;
 
 pub mod burn;
 pub use burn::*;
-pub use security::BurnTracker;
+
 pub mod staking;
 pub use staking::*;
 
@@ -34,6 +37,14 @@ pub mod char_coin {
         msg!("CHAR Coin initialized with token supply: {}", config_account.config.token_supply);
         Ok(())
     }
+
+        /// Initializes a multisig wallet for Marketing or Donation funds.
+        pub fn initialize_multisig_handler(ctx: Context<InitializeMultisig>, params: security::InitializeMultisigParams) -> Result<()> {
+            security_initialize_multisig(ctx, params)
+        }
+        
+        
+    
 
      /// Stake tokens with a specified lockup duration.
      pub fn stake_tokens_handler(
@@ -300,6 +311,14 @@ pub struct TransferTokens<'info> {
     pub token_program: Program<'info, Token>,
 }
 
+// #[derive(Accounts)]
+// pub struct InitializeMultisig<'info> {
+//     #[account(init, payer = payer, space = 8 + 4 + (10 * 32) + 1 + 1)]
+//     pub multisig: Account<'info, security::Multisig>,
+//     #[account(mut)]
+//     pub payer: Signer<'info>,
+//     pub system_program: Program<'info, System>,
+// }
 
 
 
