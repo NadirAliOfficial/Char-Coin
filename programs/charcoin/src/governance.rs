@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::clock::Clock;
 
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq)]
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Debug)]
 pub enum ProposalStatus {
     Active,
     Approved,
@@ -27,44 +28,62 @@ pub struct Vote {
     pub vote_choice: bool, // true for Yes, false for No
 }
 
-// Governance parameters
-pub fn submit_proposal(ctx: Context<SubmitProposal>, title: String, description: String, duration: i64) -> Result<()> {
+/// Submit a new proposal with a given title, description, and duration (in seconds).
+pub fn submit_proposal(
+    ctx: Context<SubmitProposal>,
+    title: String,
+    description: String,
+    duration: i64,
+) -> Result<()> {
     let proposal = &mut ctx.accounts.proposal;
     proposal.creator = ctx.accounts.creator.key();
-    proposal.title = title.clone();
+    proposal.title = title;
     proposal.description = description;
+    proposal.yes_votes = 0;
+    proposal.no_votes = 0;
     proposal.status = ProposalStatus::Active;
     proposal.end_time = Clock::get()?.unix_timestamp + duration;
-    
-    msg!("New proposal submitted: {}", title);
+    msg!("Proposal '{}' submitted by {}", proposal.title, proposal.creator);
     Ok(())
 }
 
-// Voting process
-pub fn vote_on_proposal(ctx: Context<VoteOnProposal>, proposal_id: u64, vote_choice: bool, amount_staked: u64) -> Result<()> {
+/// Vote on a proposal using staked tokens as vote weight.
+/// `amount_staked` represents the voting power of the voter.
+pub fn vote_on_proposal(
+    ctx: Context<VoteOnProposal>,
+    proposal_id: u64,
+    vote_choice: bool,
+    amount_staked: u64,
+) -> Result<()> {
     let proposal = &mut ctx.accounts.proposal;
-    let clock = Clock::get()?.unix_timestamp;
+    let current_time = Clock::get()?.unix_timestamp;
+    require!(current_time < proposal.end_time, GovernanceError::VotingPeriodEnded);
 
-    require!(clock < proposal.end_time, GovernanceError::VotingPeriodEnded);
-
-    let vote_weight = amount_staked; // Voting power based on staked tokens
-
+    // Voting power is determined by the staked amount.
     if vote_choice {
-        proposal.yes_votes += vote_weight;
+        proposal.yes_votes = proposal.yes_votes
+            .checked_add(amount_staked)
+            .ok_or(GovernanceError::MathError)?;
     } else {
-        proposal.no_votes += vote_weight;
+        proposal.no_votes = proposal.no_votes
+            .checked_add(amount_staked)
+            .ok_or(GovernanceError::MathError)?;
     }
-
-    msg!("Vote casted on proposal {}: {} votes", proposal_id, vote_weight);
+    msg!(
+        "Vote cast on proposal {}: {} votes ({} for, {} against)",
+        proposal_id,
+        amount_staked,
+        proposal.yes_votes,
+        proposal.no_votes
+    );
     Ok(())
 }
- 
-// Finalize proposal.
+
+/// Finalizes the proposal once the voting period has ended.
 pub fn finalize_proposal(ctx: Context<FinalizeProposal>) -> Result<()> {
     let proposal = &mut ctx.accounts.proposal;
-    let clock = Clock::get()?.unix_timestamp;
-
-    require!(clock >= proposal.end_time, GovernanceError::VotingStillActive);
+    let current_time = Clock::get()?.unix_timestamp;
+    require!(current_time >= proposal.end_time, GovernanceError::VotingStillActive);
 
     if proposal.yes_votes > proposal.no_votes {
         proposal.status = ProposalStatus::Approved;
@@ -78,27 +97,27 @@ pub fn finalize_proposal(ctx: Context<FinalizeProposal>) -> Result<()> {
 
 #[derive(Accounts)]
 pub struct SubmitProposal<'info> {
+    #[account(init, payer = creator, space = 8 + 32 + 8 + 256 + 8 + 8 + 1 + 8)]
+    pub proposal: Account<'info, Proposal>,
     #[account(mut)]
     pub creator: Signer<'info>,
-    #[account(init, payer = creator, space = 8 + 32 + 256)]
-    pub proposal: Account<'info, Proposal>,
     pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
 pub struct VoteOnProposal<'info> {
     #[account(mut)]
-    pub voter: Signer<'info>,
-    #[account(mut)]
     pub proposal: Account<'info, Proposal>,
+    #[account(mut)]
+    pub voter: Signer<'info>,
 }
 
 #[derive(Accounts)]
 pub struct FinalizeProposal<'info> {
     #[account(mut)]
-    pub admin: Signer<'info>,
-    #[account(mut)]
     pub proposal: Account<'info, Proposal>,
+    #[account(mut)]
+    pub admin: Signer<'info>,
 }
 
 #[error_code]
@@ -107,4 +126,6 @@ pub enum GovernanceError {
     VotingPeriodEnded,
     #[msg("Voting period is still active.")]
     VotingStillActive,
+    #[msg("Math error.")]
+    MathError,
 }

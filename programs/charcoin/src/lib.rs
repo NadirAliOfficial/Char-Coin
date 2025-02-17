@@ -5,29 +5,33 @@ use anchor_spl::token::{
     self, Burn, MintTo, Token, Transfer,
 };
 
-// Import our modules.
-pub mod security;
-pub use security::*;
-pub use security::initialize_multisig as security_initialize_multisig;
-
-pub mod burn;
-pub use burn::*;
-
-pub mod staking;
-pub use staking::*;
-
 
 pub mod governance;
-pub use governance::*;
 
-// pub use governance::*;
+// pub use crate::governance::SubmitProposal;
+// pub use crate::governance::VoteOnProposal;
+// pub use crate::governance::FinalizeProposal;
+
+
+// Modules
+pub mod security;
+pub mod burn;
+pub mod staking;
 mod rewards;
 mod donation;
 
+// Re-export public items
+pub use security::*;
+pub use burn::*;
+pub use staking::*;
+pub use governance::*;
+pub use security::initialize_multisig as security_initialize_multisig;
+
 declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
+
 #[program]
-pub mod char_coin {
+pub mod charcoin {
     use super::*;
 
      /// Initializes the global configuration.
@@ -44,7 +48,6 @@ pub mod char_coin {
         }
         
         
-    
 
      /// Stake tokens with a specified lockup duration.
      pub fn stake_tokens_handler(
@@ -209,25 +212,27 @@ pub mod char_coin {
     
 
     // Governance
-    pub fn create_governance_proposal(
-        ctx: Context<SubmitProposal>, // Use struct directly
+    // Governance functions
+    pub fn submit_proposal_handler(
+        ctx: Context<SubmitProposal>,
         title: String,
         description: String,
-        duration: i64
+        duration: i64,
     ) -> Result<()> {
         governance::submit_proposal(ctx, title, description, duration)
     }
-
-    pub fn cast_vote(
-        ctx: Context<VoteOnProposal>, // Use struct directly
+    
+    pub fn vote_on_proposal_handler(
+        ctx: Context<VoteOnProposal>,
         proposal_id: u64,
         vote_choice: bool,
-        amount_staked: u64
+        amount_staked: u64,
     ) -> Result<()> {
         governance::vote_on_proposal(ctx, proposal_id, vote_choice, amount_staked)
     }
+    
 
-    pub fn conclude_proposal(ctx: Context<FinalizeProposal>) -> Result<()> {
+    pub fn finalize_proposal_handler(ctx: Context<FinalizeProposal>) -> Result<()> {
         governance::finalize_proposal(ctx)
     }
 }
