@@ -5,18 +5,12 @@ use anchor_spl::token::{
     self, Burn, MintTo, Token, Transfer,
 };
 
-
-pub mod governance;
-
-// pub use crate::governance::SubmitProposal;
-// pub use crate::governance::VoteOnProposal;
-// pub use crate::governance::FinalizeProposal;
-
-
 // Modules
 pub mod security;
 pub mod burn;
 pub mod staking;
+pub mod governance;
+pub mod marketing;
 mod rewards;
 mod donation;
 
@@ -25,7 +19,9 @@ pub use security::*;
 pub use burn::*;
 pub use staking::*;
 pub use governance::*;
-pub use security::initialize_multisig as security_initialize_multisig;
+pub use marketing::*;
+
+
 
 declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
@@ -42,11 +38,12 @@ pub mod charcoin {
         Ok(())
     }
 
-        /// Initializes a multisig wallet for Marketing or Donation funds.
-        pub fn initialize_multisig_handler(ctx: Context<InitializeMultisig>, params: security::InitializeMultisigParams) -> Result<()> {
-            security_initialize_multisig(ctx, params)
-        }
-        
+    pub fn initialize_multisig_handler(
+        ctx: Context<InitializeMultisig>,  // Add module prefix here
+        params: security::InitializeMultisigParams
+    ) -> Result<()> {
+        security::initialize_multisig(ctx, params)
+    }
         
 
      /// Stake tokens with a specified lockup duration.
@@ -235,6 +232,12 @@ pub mod charcoin {
     pub fn finalize_proposal_handler(ctx: Context<FinalizeProposal>) -> Result<()> {
         governance::finalize_proposal(ctx)
     }
+
+    // Marketing 
+    pub fn distribute_marketing_funds_handler(ctx: Context<DistributeMarketingFunds>) -> Result<()> {
+        marketing::distribute_marketing_funds(ctx)
+    }
+    
 }
 
 /// Stores global configuration for CHAR Coin.
@@ -315,16 +318,6 @@ pub struct TransferTokens<'info> {
     pub owner: UncheckedAccount<'info>,
     pub token_program: Program<'info, Token>,
 }
-
-// #[derive(Accounts)]
-// pub struct InitializeMultisig<'info> {
-//     #[account(init, payer = payer, space = 8 + 4 + (10 * 32) + 1 + 1)]
-//     pub multisig: Account<'info, security::Multisig>,
-//     #[account(mut)]
-//     pub payer: Signer<'info>,
-//     pub system_program: Program<'info, System>,
-// }
-
 
 
 /// Event to log supply updates.
