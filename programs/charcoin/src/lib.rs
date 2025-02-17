@@ -22,7 +22,6 @@ pub use governance::*;
 pub use marketing::*;
 
 
-
 declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
 
@@ -38,6 +37,7 @@ pub mod charcoin {
         Ok(())
     }
 
+    /// Initializes the multisig module.
     pub fn initialize_multisig_handler(
         ctx: Context<InitializeMultisig>,  // Add module prefix here
         params: security::InitializeMultisigParams
@@ -47,17 +47,18 @@ pub mod charcoin {
         
 
      /// Stake tokens with a specified lockup duration.
-     pub fn stake_tokens_handler(
-        ctx: Context<StakeTokens>,
-        amount: u64,
-        lockup: LockupPeriod,
-    ) -> Result<()> {
+     pub fn stake_tokens_handler(ctx: Context<StakeTokens>, amount: u64, lockup: staking::LockupPeriod) -> Result<()> {
         staking::stake_tokens(ctx, amount, lockup)
     }
 
     /// Unstake tokens after the lockup period has expired.
     pub fn unstake_tokens_handler(ctx: Context<UnstakeTokens>) -> Result<()> {
         staking::unstake_tokens(ctx)
+    }
+
+    /// Distribute staking rewards.
+    pub fn distribute_staking_rewards(ctx: Context<DistributeRewards>, reward_amount: u64) -> Result<()> {
+        staking::distribute_rewards(ctx, reward_amount)
     }
     
     /// Mints tokens (admin only).
