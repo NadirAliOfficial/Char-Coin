@@ -10,25 +10,25 @@ pub enum ProposalStatus {
 
 #[account]
 pub struct Proposal {
-    pub id: u64,
-    pub creator: Pubkey,
-    pub title: String,
-    pub description: String,
-    pub yes_votes: u64,
-    pub no_votes: u64,
-    pub status: ProposalStatus,
-    pub end_time: i64,
+    pub id: u64,                  // Unique proposal ID
+    pub creator: Pubkey,          // Creator of the proposal
+    pub title: String,            // Title of the proposal
+    pub description: String,      // Detailed description
+    pub yes_votes: u64,           // Total yes votes (weighted)
+    pub no_votes: u64,            // Total no votes (weighted)
+    pub status: ProposalStatus,   // Current status
+    pub end_time: i64,            // Voting deadline (unix timestamp)
 }
 
 #[account]
 pub struct Vote {
-    pub proposal_id: u64,
-    pub voter: Pubkey,
-    pub amount_staked: u64,
-    pub vote_choice: bool, // true for Yes, false for No
+    pub proposal_id: u64,         // Associated proposal ID
+    pub voter: Pubkey,            // Voter's public key
+    pub amount_staked: u64,       // Voting power (staked tokens)
+    pub vote_choice: bool,        // true for Yes, false for No
 }
 
-/// Submit a new proposal with a given title, description, and duration (in seconds).
+/// Submits a new proposal with a title, description, and duration (in seconds).
 pub fn submit_proposal(
     ctx: Context<SubmitProposal>,
     title: String,
@@ -42,13 +42,14 @@ pub fn submit_proposal(
     proposal.yes_votes = 0;
     proposal.no_votes = 0;
     proposal.status = ProposalStatus::Active;
+    // Set the end time as current time plus duration.
     proposal.end_time = Clock::get()?.unix_timestamp + duration;
     msg!("Proposal '{}' submitted by {}", proposal.title, proposal.creator);
     Ok(())
 }
 
-/// Vote on a proposal using staked tokens as vote weight.
-/// `amount_staked` represents the voting power of the voter.
+/// Casts a vote on a proposal using staked tokens as voting power.
+/// `vote_choice`: true for Yes, false for No.
 pub fn vote_on_proposal(
     ctx: Context<VoteOnProposal>,
     proposal_id: u64,
@@ -57,15 +58,20 @@ pub fn vote_on_proposal(
 ) -> Result<()> {
     let proposal = &mut ctx.accounts.proposal;
     let current_time = Clock::get()?.unix_timestamp;
-    require!(current_time < proposal.end_time, GovernanceError::VotingPeriodEnded);
+    require!(
+        current_time < proposal.end_time,
+        GovernanceError::VotingPeriodEnded
+    );
 
-    // Voting power is determined by the staked amount.
+    // Add the vote weight to the appropriate counter.
     if vote_choice {
-        proposal.yes_votes = proposal.yes_votes
+        proposal.yes_votes = proposal
+            .yes_votes
             .checked_add(amount_staked)
             .ok_or(GovernanceError::MathError)?;
     } else {
-        proposal.no_votes = proposal.no_votes
+        proposal.no_votes = proposal
+            .no_votes
             .checked_add(amount_staked)
             .ok_or(GovernanceError::MathError)?;
     }
@@ -79,11 +85,15 @@ pub fn vote_on_proposal(
     Ok(())
 }
 
-/// Finalizes the proposal once the voting period has ended.
+/// Finalizes a proposal after the voting period has ended.
+/// Updates the proposal's status to Approved if yes_votes > no_votes, else Rejected.
 pub fn finalize_proposal(ctx: Context<FinalizeProposal>) -> Result<()> {
     let proposal = &mut ctx.accounts.proposal;
     let current_time = Clock::get()?.unix_timestamp;
-    require!(current_time >= proposal.end_time, GovernanceError::VotingStillActive);
+    require!(
+        current_time >= proposal.end_time,
+        GovernanceError::VotingStillActive
+    );
 
     if proposal.yes_votes > proposal.no_votes {
         proposal.status = ProposalStatus::Approved;

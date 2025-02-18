@@ -2,6 +2,9 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::clock::Clock;
 
 const PRECISION: u128 = 1_000_000_000_000; // Fixed-point precision multiplier
+const THIRTY_DAYS: i64 = 30 * 24 * 3600;
+const NINETY_DAYS: i64 = 90 * 24 * 3600;
+const ONE_EIGHTY_DAYS: i64 = 180 * 24 * 3600;
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq, Debug)]
 pub enum LockupPeriod {
@@ -38,6 +41,15 @@ pub fn stake_tokens(ctx: Context<StakeTokens>, amount: u64, lockup: LockupPeriod
         .total_staked
         .checked_add(amount)
         .ok_or(ErrorCode::MathError)?;
+
+    // Emit event for staking activity
+    emit!(StakingEvent {
+        staker: stake_info.staker,
+        amount: stake_info.amount,
+        lockup_period: stake_info.lockup_period.clone(),
+        timestamp: clock.unix_timestamp,
+    });
+
     Ok(())
 }
 
@@ -46,19 +58,28 @@ pub fn unstake_tokens(ctx: Context<UnstakeTokens>) -> Result<()> {
     let clock = Clock::get()?;
     let stake_info = &ctx.accounts.stake_info;
     let required_lockup = match stake_info.lockup_period {
-        LockupPeriod::ThirtyDays => 30 * 24 * 3600,
-        LockupPeriod::NinetyDays => 90 * 24 * 3600,
-        LockupPeriod::OneEightyDays => 180 * 24 * 3600,
+        LockupPeriod::ThirtyDays => THIRTY_DAYS,
+        LockupPeriod::NinetyDays => NINETY_DAYS,
+        LockupPeriod::OneEightyDays => ONE_EIGHTY_DAYS,
     };
     require!(
         clock.unix_timestamp >= stake_info.start_time + required_lockup,
         ErrorCode::LockPeriodNotExpired
     );
+
     let pool = &mut ctx.accounts.staking_pool;
     pool.total_staked = pool
         .total_staked
         .checked_sub(stake_info.amount)
         .ok_or(ErrorCode::MathError)?;
+
+    // Emit event for unstaking activity
+    emit!(UnstakingEvent {
+        staker: stake_info.staker,
+        amount: stake_info.amount,
+        timestamp: clock.unix_timestamp,
+    });
+
     Ok(())
 }
 
@@ -84,11 +105,7 @@ pub fn distribute_rewards(ctx: Context<DistributeRewards>, reward_amount: u64) -
         new_acc_reward_per_share: pool.acc_reward_per_share,
         timestamp: clock.unix_timestamp,
     });
-    msg!(
-        "Distributed {} rewards. New acc_reward_per_share: {}",
-        reward_amount,
-        pool.acc_reward_per_share
-    );
+
     Ok(())
 }
 
@@ -117,6 +134,21 @@ pub struct UnstakeTokens<'info> {
 pub struct DistributeRewards<'info> {
     #[account(mut)]
     pub staking_pool: Account<'info, StakingPool>,
+}
+
+#[event]
+pub struct StakingEvent {
+    pub staker: Pubkey,
+    pub amount: u64,
+    pub lockup_period: LockupPeriod,
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct UnstakingEvent {
+    pub staker: Pubkey,
+    pub amount: u64,
+    pub timestamp: i64,
 }
 
 #[event]

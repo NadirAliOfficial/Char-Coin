@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::clock::Clock;
 use anchor_spl::token::{self, Burn, Token, Transfer};
 use crate::BurnTracker; 
 use crate::ErrorCode;
@@ -23,14 +24,12 @@ pub struct ExecuteBuyback<'info> {
     pub token_program: Program<'info, Token>,
 }
 
-
-
 pub fn execute_buyback(
     ctx: Context<ExecuteBuyback>,
     fee_amount: u64,
     conversion_rate: u64,
 ) -> Result<()> {
-    // tokens_to_buy = fee_amount * conversion_rate
+    // Calculate the number of tokens to buy back.
     let tokens_to_buy = fee_amount
         .checked_mul(conversion_rate)
         .ok_or(ErrorCode::MathError)?;
@@ -57,6 +56,23 @@ pub fn execute_buyback(
     );
     token::burn(burn_ctx, tokens_to_buy)?;
 
+    // Update the burn tracker.
+    let tracker = &mut ctx.accounts.burn_tracker;
+    tracker.total_burned = tracker
+        .total_burned
+        .checked_add(tokens_to_buy)
+        .ok_or(ErrorCode::MathError)?;
+
+    // Get the current timestamp.
+    let clock = Clock::get()?;
+
+    // Emit an event logging the buyback and burn details.
+    emit!(BuybackBurnEvent {
+        fee_amount,
+        tokens_bought: tokens_to_buy,
+        new_total_burned: tracker.total_burned,
+        timestamp: clock.unix_timestamp,
+    });
     msg!(
         "Executed buyback: fee_amount {} resulted in burning {} tokens.",
         fee_amount,
