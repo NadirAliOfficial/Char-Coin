@@ -11,6 +11,7 @@ pub mod burn;
 pub mod staking;
 pub mod governance;
 pub mod marketing;
+pub mod private_sale;
 mod rewards;
 mod donation;
 
@@ -20,6 +21,7 @@ pub use burn::*;
 pub use staking::*;
 pub use governance::*;
 pub use marketing::*;
+pub use private_sale::*;
 
 
 declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
@@ -239,6 +241,16 @@ pub mod charcoin {
         marketing::distribute_marketing_funds(ctx)
     }
     
+    // Private Sale 
+     /// Initializes a vesting account for a private sale investor.
+     pub fn initialize_vesting_handler(ctx: Context<InitializeVesting>, locked_amount: u64) -> Result<()> {
+        private_sale::initialize_vesting(ctx, locked_amount)
+    }
+
+    /// Allows an investor to claim vested tokens after 90 days.
+    pub fn claim_tokens_handler(ctx: Context<ClaimTokens>) -> Result<()> {
+        private_sale::claim_tokens(ctx)
+    }
 }
 
 /// Stores global configuration for CHAR Coin.
