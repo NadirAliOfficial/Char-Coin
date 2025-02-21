@@ -242,15 +242,21 @@ pub mod charcoin {
     }
     
     // Private Sale 
-     /// Initializes a vesting account for a private sale investor.
-     pub fn initialize_vesting_handler(ctx: Context<InitializeVesting>, locked_amount: u64) -> Result<()> {
+      /// Initializes a vesting account for a private sale investor.
+    pub fn initialize_vesting_handler(ctx: Context<InitializeVesting>, locked_amount: u64) -> Result<()> {
         private_sale::initialize_vesting(ctx, locked_amount)
     }
-
-    /// Allows an investor to claim vested tokens after 90 days.
-    pub fn claim_tokens_handler(ctx: Context<ClaimTokens>) -> Result<()> {
-        private_sale::claim_tokens(ctx)
+    
+    /// Deposits funds into the private sale vault.
+    pub fn deposit_funds_handler(ctx: Context<DepositFunds>, deposit_amount: u64) -> Result<()> {
+        private_sale::deposit_funds(ctx, deposit_amount)
     }
+    
+    /// Allows an investor to claim vested tokens after the vesting period.
+    pub fn claim_tokens_handler(ctx: Context<ClaimTokens>, sale_token_amount: u64) -> Result<()> {
+        private_sale::claim_tokens(ctx, sale_token_amount)
+    }
+
 }
 
 /// Stores global configuration for CHAR Coin.
