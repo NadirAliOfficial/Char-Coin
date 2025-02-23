@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::clock::Clock;
 
-const PRECISION: u128 = 1_000_000_000_000; // Fixed-point precision multiplier
+const PRECISION: u128 = 1_000_000_000_000; // Fixed-point multiplier
 const THIRTY_DAYS: i64 = 30 * 24 * 3600;
 const NINETY_DAYS: i64 = 90 * 24 * 3600;
 const ONE_EIGHTY_DAYS: i64 = 180 * 24 * 3600;
@@ -15,8 +15,9 @@ pub enum LockupPeriod {
 
 #[account]
 pub struct StakingPool {
-    pub total_staked: u64,
-    pub acc_reward_per_share: u128, // Accumulated rewards per share (scaled by PRECISION)
+    pub total_staked: u64,           // Actual tokens staked.
+    pub total_effective_staked: u64, // Effective tokens staked (amount * multiplier/100).
+    pub acc_reward_per_share: u128,  // Accumulated rewards per effective staked token.
 }
 
 #[account]
@@ -25,87 +26,107 @@ pub struct StakeInfo {
     pub amount: u64,
     pub start_time: i64,
     pub lockup_period: LockupPeriod,
+    pub multiplier: u64, // e.g. 100 for 1x, 150 for 1.5x, 200 for 2x.
 }
 
-/// Stakes tokens by creating a new stake record and updating the pool.
+/// Stakes tokens by creating a new stake record, setting a multiplier based on the lockup period,
+/// and updating both actual and effective staked amounts in the pool.
 pub fn stake_tokens(ctx: Context<StakeTokens>, amount: u64, lockup: LockupPeriod) -> Result<()> {
     let clock = Clock::get()?;
     let stake_info = &mut ctx.accounts.stake_info;
     stake_info.staker = ctx.accounts.staker.key();
     stake_info.amount = amount;
     stake_info.start_time = clock.unix_timestamp;
-    stake_info.lockup_period = lockup;
-
+    stake_info.lockup_period = lockup.clone();
+    
+    // Set multiplier based on chosen lockup period.
+    let multiplier = match lockup {
+        LockupPeriod::ThirtyDays => 100,  // 1x
+        LockupPeriod::NinetyDays => 150,    // 1.5x
+        LockupPeriod::OneEightyDays => 200, // 2x
+    };
+    stake_info.multiplier = multiplier;
+    
     let pool = &mut ctx.accounts.staking_pool;
-    pool.total_staked = pool
-        .total_staked
+    pool.total_staked = pool.total_staked
         .checked_add(amount)
         .ok_or(ErrorCode::MathError)?;
-
-    // Emit event for staking activity
-    emit!(StakingEvent {
-        staker: stake_info.staker,
-        amount: stake_info.amount,
-        lockup_period: stake_info.lockup_period.clone(),
-        timestamp: clock.unix_timestamp,
-    });
-
+    let effective = amount
+        .checked_mul(multiplier)
+        .ok_or(ErrorCode::MathError)?
+        .checked_div(100)
+        .ok_or(ErrorCode::MathError)?;
+    pool.total_effective_staked = pool.total_effective_staked
+        .checked_add(effective)
+        .ok_or(ErrorCode::MathError)?;
     Ok(())
 }
 
-/// Unstakes tokens after the required lockup duration has passed.
+/// Unstakes tokens, applying a 10% penalty if unstaking occurs before the full lockup duration.
 pub fn unstake_tokens(ctx: Context<UnstakeTokens>) -> Result<()> {
     let clock = Clock::get()?;
     let stake_info = &ctx.accounts.stake_info;
+    let pool = &mut ctx.accounts.staking_pool;
+    
     let required_lockup = match stake_info.lockup_period {
         LockupPeriod::ThirtyDays => THIRTY_DAYS,
         LockupPeriod::NinetyDays => NINETY_DAYS,
         LockupPeriod::OneEightyDays => ONE_EIGHTY_DAYS,
     };
-    require!(
-        clock.unix_timestamp >= stake_info.start_time + required_lockup,
-        ErrorCode::LockPeriodNotExpired
-    );
-
-    let pool = &mut ctx.accounts.staking_pool;
-    pool.total_staked = pool
-        .total_staked
+    
+    let (unstake_amount, penalty_applied) = if clock.unix_timestamp < stake_info.start_time + required_lockup {
+        // Early unstaking: apply a 10% penalty.
+        let penalty = stake_info.amount
+            .checked_mul(10)
+            .ok_or(ErrorCode::MathError)?
+            .checked_div(100)
+            .ok_or(ErrorCode::MathError)?;
+        (stake_info.amount.checked_sub(penalty).ok_or(ErrorCode::MathError)?, true)
+    } else {
+        (stake_info.amount, false)
+    };
+    
+    // Update pool: subtract actual staked amount and effective stake.
+    pool.total_staked = pool.total_staked
         .checked_sub(stake_info.amount)
         .ok_or(ErrorCode::MathError)?;
-
-    // Emit event for unstaking activity
-    emit!(UnstakingEvent {
-        staker: stake_info.staker,
-        amount: stake_info.amount,
-        timestamp: clock.unix_timestamp,
-    });
-
+    let effective = stake_info.amount
+        .checked_mul(stake_info.multiplier)
+        .ok_or(ErrorCode::MathError)?
+        .checked_div(100)
+        .ok_or(ErrorCode::MathError)?;
+    pool.total_effective_staked = pool.total_effective_staked
+        .checked_sub(effective)
+        .ok_or(ErrorCode::MathError)?;
+    
+    if penalty_applied {
+        msg!("Early unstaking penalty applied: deducted {} tokens", stake_info.amount - unstake_amount);
+    }
+    msg!("Unstaked {} tokens", unstake_amount);
     Ok(())
 }
 
-/// Distributes new rewards to stakers by updating the pool's reward accumulator.
-/// Reward per share is computed as reward_amount * PRECISION / total_staked.
+/// Distributes new rewards to stakers based on effective stake.
 pub fn distribute_rewards(ctx: Context<DistributeRewards>, reward_amount: u64) -> Result<()> {
     let pool = &mut ctx.accounts.staking_pool;
-    require!(pool.total_staked > 0, ErrorCode::NoStakedTokens);
-
+    require!(pool.total_effective_staked > 0, ErrorCode::NoStakedTokens);
+    
     let additional = (reward_amount as u128)
         .checked_mul(PRECISION)
         .ok_or(ErrorCode::MathError)?
-        .checked_div(pool.total_staked as u128)
+        .checked_div(pool.total_effective_staked as u128)
         .ok_or(ErrorCode::MathError)?;
-    pool.acc_reward_per_share = pool
-        .acc_reward_per_share
+    pool.acc_reward_per_share = pool.acc_reward_per_share
         .checked_add(additional)
         .ok_or(ErrorCode::MathError)?;
-
+    
     let clock = Clock::get()?;
     emit!(RewardDistributionEvent {
         reward_amount,
         new_acc_reward_per_share: pool.acc_reward_per_share,
         timestamp: clock.unix_timestamp,
     });
-
+    msg!("Distributed {} rewards. New acc_reward_per_share: {}", reward_amount, pool.acc_reward_per_share);
     Ok(())
 }
 
@@ -113,7 +134,7 @@ pub fn distribute_rewards(ctx: Context<DistributeRewards>, reward_amount: u64) -
 pub struct StakeTokens<'info> {
     #[account(mut)]
     pub staking_pool: Account<'info, StakingPool>,
-    #[account(init, payer = staker, space = 8 + 32 + 8 + 8 + 1)]
+    #[account(init, payer = staker, space = 8 + 32 + 8 + 8 + 8)]
     pub stake_info: Account<'info, StakeInfo>,
     #[account(mut)]
     pub staker: Signer<'info>,
@@ -134,21 +155,6 @@ pub struct UnstakeTokens<'info> {
 pub struct DistributeRewards<'info> {
     #[account(mut)]
     pub staking_pool: Account<'info, StakingPool>,
-}
-
-#[event]
-pub struct StakingEvent {
-    pub staker: Pubkey,
-    pub amount: u64,
-    pub lockup_period: LockupPeriod,
-    pub timestamp: i64,
-}
-
-#[event]
-pub struct UnstakingEvent {
-    pub staker: Pubkey,
-    pub amount: u64,
-    pub timestamp: i64,
 }
 
 #[event]
