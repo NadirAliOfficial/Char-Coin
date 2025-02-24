@@ -12,8 +12,8 @@ pub mod staking;
 pub mod governance;
 pub mod marketing;
 pub mod private_sale;
+pub mod donation;
 mod rewards;
-mod donation;
 
 // Re-export public items
 pub use security::*;
@@ -22,6 +22,7 @@ pub use staking::*;
 pub use governance::*;
 pub use marketing::*;
 pub use private_sale::*;
+pub use donation::*;
 
 
 declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
@@ -255,6 +256,30 @@ pub mod charcoin {
     /// Allows an investor to claim vested tokens after the vesting period.
     pub fn claim_tokens_handler(ctx: Context<ClaimTokens>, sale_token_amount: u64) -> Result<()> {
         private_sale::claim_tokens(ctx, sale_token_amount)
+    }
+
+    // Donation 
+     /// Registers a new charity for the donation ecosystem.
+     pub fn register_charity_handler(
+        ctx: Context<RegisterCharity>,
+        id: u64,
+        name: String,
+        description: String,
+        wallet: Pubkey,
+        start_time: i64,
+        end_time: i64,
+    ) -> Result<()> {
+        donation::register_charity(ctx, id, name, description, wallet, start_time, end_time)
+    }
+
+    /// Casts or updates a vote for a charity.
+    pub fn cast_vote_handler(ctx: Context<CastVote>, vote_weight: u64) -> Result<()> {
+        donation::cast_vote(ctx, vote_weight)
+    }
+
+    /// Finalizes charity voting after the voting period ends.
+    pub fn finalize_charity_vote_handler(ctx: Context<FinalizeCharityVote>) -> Result<()> {
+        donation::finalize_charity_vote(ctx)
     }
 
 }
