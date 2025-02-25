@@ -1,10 +1,15 @@
-# **CHAR Coin Smart Contract (Solana)**
-## **Revolutionizing Crypto with Transparent Donations, Staking & Governance**
+# CHAR Coin Smart Contract (Solana)
 
-## **📌 Overview**
-CHAR Coin is a **Solana-based SPL token** designed to facilitate **automated donations, staking rewards, and decentralized governance**. Built using **Rust & Anchor Framework**, the smart contract ensures **secure, transparent, and automated fund distribution**, allowing users to stake, vote, and participate in the ecosystem seamlessly.
+## Revolutionizing Crypto with Transparent Donations, Staking & Governance
 
-This repository contains the **Solana smart contract** for CHAR Coin, implementing key features:
+---
+
+## Overview
+
+CHAR Coin is a Solana-based SPL token designed to facilitate automated donations, dynamic staking rewards, and decentralized governance. Built with Rust and the Anchor framework, the smart contract ensures secure, transparent, and automated fund distribution. Users can stake tokens, vote on proposals, and participate in a deflationary ecosystem that supports charitable causes and community decisions.
+
+This repository contains the complete Solana smart contract for CHAR Coin, featuring:
+
 - **Token Minting & Transfers**
 - **Automated Burn Mechanism**
 - **Multi-tiered Staking with Dynamic Rewards**
@@ -12,27 +17,45 @@ This repository contains the **Solana smart contract** for CHAR Coin, implementi
 - **Decentralized Voting for Charitable Donations**
 - **DAO Governance for Ecosystem Decisions**
 - **Multisig Security & Emergency Halt Mechanism**
+- **Private Sale Vesting with Fund Deposit & Claim**
 
 ---
 
-## **🚀 Technology Stack**
-- **Blockchain**: Solana (SPL Token)
-- **Smart Contract Language**: Rust (using Anchor Framework)
-- **CLI Tools**: Solana CLI, Anchor CLI
-- **Frontend Integration**: JavaScript/React (for PWA integration)
-- **Security Features**: Multisig Wallets, DAO Voting, Smart Contract Audits
+## Technology Stack
+
+- **Blockchain:** Solana (SPL Token)
+- **Smart Contract Language:** Rust (using Anchor Framework)
+- **CLI Tools:** Solana CLI, Anchor CLI
+- **Frontend Integration:** JavaScript/React (for PWA integration)
+- **Security:** Multisig Wallets, DAO Voting, Smart Contract Audits
 
 ---
 
-## **⚡ Installation & Setup**
-### **1️⃣ Prerequisites**
+## Project Modules
+
+- **burn.rs:** Implements buyback & burn functionality with deflationary token burning.
+- **staking.rs:** Handles staking mechanics including dynamic rewards, interest rate calculation, and early withdrawal penalties.
+- **governance.rs:** Supports DAO governance with proposal submission, stake-weighted voting, and finalization.
+- **marketing.rs:** Manages multisig-controlled marketing wallet fund distribution.
+- **donation.rs:** Contains the charity registration and weighted voting system for donations.
+- **private_sale.rs:** Manages private sale vesting, fund deposit into a vault, and token claim after a 90-day lockup.
+- **security.rs:** Provides multisig and additional security features.
+- **rewards.rs:** (Optional) Additional rewards system and lottery-based mechanisms.
+
+---
+
+## Installation & Setup
+
+### Prerequisites
+
 Before running the CHAR Coin smart contract, ensure you have:
-- **Rust & Cargo** (for Solana smart contract development)
-- **Solana CLI** (to interact with Solana blockchain)
-- **Anchor Framework** (for efficient smart contract development)
-- **Node.js & Yarn** (if integrating with the frontend)
+- **Rust & Cargo** (for smart contract development)
+- **Solana CLI** (to interact with the Solana blockchain)
+- **Anchor Framework** (for efficient contract development)
+- **Node.js & Yarn** (for frontend integration and testing)
 
-**Install Dependencies:**
+### Install Dependencies
+
 ```sh
 # Install Rust & Cargo
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
@@ -40,76 +63,118 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 # Install Solana CLI
 sh -c "$(curl -sSfL https://release.solana.com/stable/install)"
 
-# Install Anchor Framework
+# Install Anchor CLI
 cargo install --git https://github.com/coral-xyz/anchor anchor-cli --locked
 ```
 
 ---
 
-## **🛠️ Deployment**
-### **2️⃣ Build the Smart Contract**
+## Deployment
+
+### Build the Smart Contract
+
 ```sh
 anchor build
 ```
 
-### **3️⃣ Deploy to Solana Devnet**
+### Deploy to Solana Devnet
+
 ```sh
 solana config set --url devnet
 anchor deploy
 ```
 
-### **4️⃣ Verify Contract on Solscan**
-After deployment, retrieve the **Program ID** and verify on [Solscan](https://solscan.io).
+### Verify on Solscan
+
+Retrieve your Program ID and verify the deployment on [Solscan](https://solscan.io):
+
 ```sh
-solana program show --program-id
+solana program show --program-id <YOUR_PROGRAM_ID>
 ```
 
 ---
 
-## **📌 Features & Functionalities**
-### **🪙 Tokenomics & Fund Distribution**
-- **1% of all transactions** collected daily
-- **10% for Buyback, Deflation, & Marketing**
-- **75% for Charity Donations & Rewards**
-- **15% for Staking Incentives**
+## Features & Functionalities
 
-### **🔥 Token Burn Mechanism**
-- A **percentage of transaction volume is burned** daily
-- Ensures long-term deflation & value appreciation
+### Tokenomics & Fund Distribution
 
-### **💰 Staking & Rewards**
-- Users **lock CHAR tokens** to earn rewards
-- Lock duration options: **30, 90, or 180 days**
-- **Dynamic interest rates** based on transaction volume
-- **Early withdrawal penalty** applies
+- **Transaction Fee:** 1% of every transaction is collected.
+- **Allocation:**
+  - **10%** for Buyback, Deflation, & Marketing.
+  - **75%** for Charity Donations & Rewards.
+  - **15%** for Staking Incentives.
 
-### **🗳️ DAO Governance & Voting**
-- **Community-driven decisions** via DAO
-- **Stake-weighted voting** for proposal approval
-- Users **vote for charitable causes** every month
+### Automated Burn Mechanism
 
-### **🔒 Security & Audits**
-- **Multisig Wallets** for fund safety
-- **Emergency Halt Mechanism** to prevent exploits
-- **3rd Party Audits** before mainnet deployment
+- A portion of transaction fees is automatically used to buy back and burn tokens.
+- This deflationary process ensures long-term scarcity and value appreciation.
+
+### Staking & Dynamic Rewards
+
+- Users can lock CHAR tokens for rewards with lockup durations of **30, 90, or 180 days**.
+- **Dynamic Interest Rates:** Calculated based on total transaction volume and total staked tokens.
+- Early withdrawal incurs a 10% penalty.
+- Reward distribution uses a fixed-point multiplier for precision.
+
+### DAO Governance & Voting
+
+- Community-driven decision-making with proposal creation and stake-weighted voting.
+- Voting is open for a defined period, and proposals are finalized on-chain with detailed event logging.
+- Only tokens in staking are valid for voting; a minimum of 15 days of staking is required for eligibility.
+
+### Multisig Security
+
+- Multisig wallets ensure that fund transfers (marketing and donation) are approved by multiple authorized parties.
+- Emergency halt mechanisms are in place to prevent exploits.
+
+### Private Sale & Vesting
+
+- Investors participate in a private sale where tokens are locked in a vesting contract for 90 days.
+- After the vesting period, investors can claim their tokens, ensuring controlled token distribution.
 
 ---
 
-## **🧪 Testing**
-To run unit tests and validate contract functionalities:
+## Testing
+
+Run unit tests to validate all functionalities:
+
 ```sh
 anchor test
 ```
-This runs automated tests for:
-- **Staking & reward calculations**
-- **Fund distribution accuracy**
-- **Governance voting integrity**
-- **Security & edge cases**
+
+Tests cover:
+- Token minting and transfers.
+- Burn mechanism and buyback functionality.
+- Staking, reward distribution, and dynamic interest rate calculations.
+- DAO governance (proposal submission, voting, and finalization).
+- Multisig-controlled fund distribution.
+- Private sale vesting and claim processes.
 
 ---
 
-## **🌍 Roadmap**
-✔ **Phase 1: Smart Contract Development** (Feb 2025 - Mar 2025)  
-✔ **Phase 2: Internal Testing & Optimization** (Mar 2025)  
-✔ **Phase 3: Solana Mainnet Deployment** (Mar 2025)  
-✔ **Phase 4: Web App Integration & Launch** (Q2 2024)  
+## API & Documentation
+
+Express API server (located in the `api` folder) is provided for interacting with the on-chain instructions, including:
+
+- Creating proposals.
+- Casting votes.
+- Distributing rewards.
+- Managing staking and vesting.
+
+Refer to the IDL in the `target/idl` directory for a complete list of instructions and account structures.
+
+---
+
+## Roadmap
+
+**Phase 1: Smart Contract Development** (Feb 2025 - Mar 2025)  
+- Implement core functionalities (tokenomics, staking, governance, etc.).
+
+**Phase 2: Internal Testing & Optimization** (Mar 2025)  
+- Conduct extensive testing, gas optimization, and security audits.
+
+**Phase 3: Solana Mainnet Deployment** (Mar 2025)  
+- Deploy the contract on Solana Mainnet after thorough testing.
+
+**Phase 4: Web App Integration & Launch** (Q2 2025)  
+- Integrate with a user-friendly frontend for ecosystem participation.
