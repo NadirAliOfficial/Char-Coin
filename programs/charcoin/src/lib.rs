@@ -236,7 +236,6 @@ pub mod charcoin {
     pub fn finalize_proposal_handler(ctx: Context<FinalizeProposal>) -> Result<()> {
         governance::finalize_proposal(ctx)
     }
-
     // Marketing 
     pub fn distribute_marketing_funds_handler(ctx: Context<DistributeMarketingFunds>) -> Result<()> {
         marketing::distribute_marketing_funds(ctx)

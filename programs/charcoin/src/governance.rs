@@ -86,7 +86,8 @@ pub fn vote_on_proposal(
 }
 
 /// Finalizes a proposal after the voting period has ended.
-/// Updates the proposal's status to Approved if yes_votes > no_votes, else Rejected.
+/// Updates the proposal's status to Approved if yes_votes > no_votes, else Rejected,
+/// and emits a ProposalFinalizedEvent with the vote counts and status.
 pub fn finalize_proposal(ctx: Context<FinalizeProposal>) -> Result<()> {
     let proposal = &mut ctx.accounts.proposal;
     let current_time = Clock::get()?.unix_timestamp;
@@ -102,8 +103,19 @@ pub fn finalize_proposal(ctx: Context<FinalizeProposal>) -> Result<()> {
         proposal.status = ProposalStatus::Rejected;
         msg!("Proposal {} rejected!", proposal.id);
     }
+    
+    emit!(ProposalFinalizedEvent {
+        proposal_id: proposal.id,
+        status: proposal.status.clone(),
+        yes_votes: proposal.yes_votes,
+        no_votes: proposal.no_votes,
+        timestamp: current_time,
+    });
+    
     Ok(())
 }
+
+
 
 #[derive(Accounts)]
 pub struct SubmitProposal<'info> {
@@ -138,4 +150,13 @@ pub enum GovernanceError {
     VotingStillActive,
     #[msg("Math error.")]
     MathError,
+}
+
+#[event]
+pub struct ProposalFinalizedEvent {
+    pub proposal_id: u64,
+    pub status: ProposalStatus,
+    pub yes_votes: u64,
+    pub no_votes: u64,
+    pub timestamp: i64,
 }
