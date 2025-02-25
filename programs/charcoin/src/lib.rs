@@ -60,8 +60,8 @@ pub mod charcoin {
     }
 
     /// Distribute staking rewards.
-    pub fn distribute_staking_rewards(ctx: Context<DistributeRewards>, reward_amount: u64) -> Result<()> {
-        staking::distribute_rewards(ctx, reward_amount)
+    pub fn distribute_staking_rewards(ctx: Context<DistributeRewards>, reward_amount: u64, transaction_volume: u64) -> Result<()> {
+        staking::distribute_rewards(ctx, reward_amount, transaction_volume)
     }
     
     /// Mints tokens (admin only).
