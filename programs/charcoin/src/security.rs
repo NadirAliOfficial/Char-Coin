@@ -38,6 +38,7 @@ pub fn initialize_multisig(
     Ok(())
 }
 
+/// Verifies multisig approval using three signer accounts.
 pub fn verify_multisig(ctx: &Context<ExecuteMultisig>) -> Result<()> {
     let multisig = &ctx.accounts.multisig;
     let mut valid_signers = 0;
@@ -60,6 +61,7 @@ pub fn verify_multisig(ctx: &Context<ExecuteMultisig>) -> Result<()> {
 }
 
 
+/// Account to track tokens burned.
 #[account]
 pub struct BurnTracker {
     /// The total number of tokens burned.
@@ -73,6 +75,7 @@ pub enum WalletType {
     Donation,
 }
 
+/// Multisig account that holds the configuration for multisig approvals.
 #[account]
 pub struct Multisig {
     /// The list of authorized owner public keys.
@@ -83,6 +86,7 @@ pub struct Multisig {
     pub wallet_type: WalletType,
 }
 
+/// Context for executing multisig approvals.
 #[derive(Accounts)]
 pub struct ExecuteMultisig<'info> {
     /// CHECK: This is the multisig configuration account storing approved signer keys.
@@ -99,10 +103,58 @@ pub struct ExecuteMultisig<'info> {
     pub signer3: AccountInfo<'info>,
 }
 
+
+/// Error codes for multisig functions.
 #[error_code]
 pub enum MultisigError {
     #[msg("Not enough valid signatures provided.")]
     NotEnoughSignatures,
     #[msg("Too many owners provided; maximum allowed is 10.")]
     TooManyOwners,
+}
+
+
+/// ---------------------------------------------------------------------------
+/// Emergency Halt Implementation
+
+/// Global emergency state that indicates if the contract is halted.
+#[account]
+pub struct EmergencyState {
+    pub halted: bool,
+}
+
+/// Context for activating an emergency halt.
+#[derive(Accounts)]
+pub struct EmergencyHalt<'info> {
+    #[account(mut)]
+    pub emergency_state: Account<'info, EmergencyState>,
+    /// CHECK: This account is the authorized authority and is expected to be a valid signer. No further checks are needed.
+     #[account(signer)]
+    pub authority: AccountInfo<'info>,
+}
+
+/// Activates an emergency halt by setting the global emergency state to halted.
+pub fn emergency_halt(ctx: Context<EmergencyHalt>) -> Result<()> {
+    let emergency_state = &mut ctx.accounts.emergency_state;
+    emergency_state.halted = true;
+    msg!("Emergency halt activated.");
+    Ok(())
+}
+
+/// Context for deactivating an emergency halt.
+#[derive(Accounts)]
+pub struct EmergencyUnhalt<'info> {
+    #[account(mut)]
+    pub emergency_state: Account<'info, EmergencyState>,
+     /// CHECK: This account is the authorized authority and is expected to be a valid signer. No further checks are needed.
+    #[account(signer)]
+    pub authority: AccountInfo<'info>,
+}
+
+/// Deactivates the emergency halt by clearing the halted flag.
+pub fn emergency_unhalt(ctx: Context<EmergencyUnhalt>) -> Result<()> {
+    let emergency_state = &mut ctx.accounts.emergency_state;
+    emergency_state.halted = false;
+    msg!("Emergency halt deactivated.");
+    Ok(())
 }

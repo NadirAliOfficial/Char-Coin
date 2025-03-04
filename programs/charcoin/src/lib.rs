@@ -281,6 +281,15 @@ pub mod charcoin {
         donation::finalize_charity_vote(ctx)
     }
 
+    // Emergency halt
+    pub fn emergency_halt_handler(ctx: Context<EmergencyHalt>) -> Result<()> {
+        security::emergency_halt(ctx)
+    }
+
+    pub fn emergency_unhalt_handler(ctx: Context<EmergencyUnhalt>) -> Result<()> {
+        security::emergency_unhalt(ctx)
+    }
+
 }
 
 /// Stores global configuration for CHAR Coin.
