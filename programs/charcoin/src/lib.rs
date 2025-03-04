@@ -13,7 +13,7 @@ pub mod governance;
 pub mod marketing;
 pub mod private_sale;
 pub mod donation;
-mod rewards;
+pub mod rewards;
 
 // Re-export public items
 pub use security::*;
@@ -23,7 +23,7 @@ pub use governance::*;
 pub use marketing::*;
 pub use private_sale::*;
 pub use donation::*;
-
+pub use rewards::*;
 
 declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
@@ -251,6 +251,24 @@ pub mod charcoin {
         execute_withdrawal(ctx)
     }
 
+    //  Rewards 
+    /// Releases monthly funds from the treasury to staking rewards and charity fund.
+    pub fn release_monthly_funds_handler(
+        ctx: Context<ReleaseMonthlyFunds>,
+        total_amount: u64,
+        staking_pct: u8,
+        charity_pct: u8,
+    ) -> Result<()> {
+        rewards::release_monthly_funds(ctx, total_amount, staking_pct, charity_pct)
+    }
+
+    /// Releases annual funds from the treasury to the annual charity fund.
+    pub fn release_annual_funds_handler(
+        ctx: Context<ReleaseAnnualFunds>,
+        annual_amount: u64,
+    ) -> Result<()> {
+        rewards::release_annual_funds(ctx, annual_amount)
+    }
     // Marketing 
     pub fn distribute_marketing_funds_handler(ctx: Context<DistributeMarketingFunds>) -> Result<()> {
         marketing::distribute_marketing_funds(ctx)
