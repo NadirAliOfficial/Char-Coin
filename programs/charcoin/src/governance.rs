@@ -28,7 +28,7 @@ pub struct Vote {
     pub vote_choice: bool,        // true for Yes, false for No
 }
 
-/// Submits a new proposal with a title, description, and duration (in seconds).
+/// Submits a new proposal.
 pub fn submit_proposal(
     ctx: Context<SubmitProposal>,
     title: String,
@@ -42,14 +42,12 @@ pub fn submit_proposal(
     proposal.yes_votes = 0;
     proposal.no_votes = 0;
     proposal.status = ProposalStatus::Active;
-    // Set the end time as current time plus duration.
     proposal.end_time = Clock::get()?.unix_timestamp + duration;
     msg!("Proposal '{}' submitted by {}", proposal.title, proposal.creator);
     Ok(())
 }
 
-/// Casts a vote on a proposal using staked tokens as voting power.
-/// `vote_choice`: true for Yes, false for No.
+/// Casts a vote on a proposal.
 pub fn vote_on_proposal(
     ctx: Context<VoteOnProposal>,
     proposal_id: u64,
@@ -62,8 +60,6 @@ pub fn vote_on_proposal(
         current_time < proposal.end_time,
         GovernanceError::VotingPeriodEnded
     );
-
-    // Add the vote weight to the appropriate counter.
     if vote_choice {
         proposal.yes_votes = proposal
             .yes_votes
@@ -85,9 +81,7 @@ pub fn vote_on_proposal(
     Ok(())
 }
 
-/// Finalizes a proposal after the voting period has ended.
-/// Updates the proposal's status to Approved if yes_votes > no_votes, else Rejected,
-/// and emits a ProposalFinalizedEvent with the vote counts and status.
+/// Finalizes a proposal after voting has ended.
 pub fn finalize_proposal(ctx: Context<FinalizeProposal>) -> Result<()> {
     let proposal = &mut ctx.accounts.proposal;
     let current_time = Clock::get()?.unix_timestamp;
@@ -95,7 +89,6 @@ pub fn finalize_proposal(ctx: Context<FinalizeProposal>) -> Result<()> {
         current_time >= proposal.end_time,
         GovernanceError::VotingStillActive
     );
-
     if proposal.yes_votes > proposal.no_votes {
         proposal.status = ProposalStatus::Approved;
         msg!("Proposal {} approved!", proposal.id);
@@ -103,7 +96,6 @@ pub fn finalize_proposal(ctx: Context<FinalizeProposal>) -> Result<()> {
         proposal.status = ProposalStatus::Rejected;
         msg!("Proposal {} rejected!", proposal.id);
     }
-    
     emit!(ProposalFinalizedEvent {
         proposal_id: proposal.id,
         status: proposal.status.clone(),
@@ -111,11 +103,135 @@ pub fn finalize_proposal(ctx: Context<FinalizeProposal>) -> Result<()> {
         no_votes: proposal.no_votes,
         timestamp: current_time,
     });
-    
     Ok(())
 }
 
+/// ---------------------------------------------------------------------
+/// DAO Treasury Functionality (Merged into Governance)
+/// ---------------------------------------------------------------------
 
+/// Account structure for the DAO Treasury.
+#[account]
+pub struct Treasury {
+    /// List of multisig owner public keys.
+    pub owners: Vec<Pubkey>,
+    /// Approval threshold required for executing a withdrawal.
+    pub threshold: u8,
+    /// Counter for executed withdrawals.
+    pub withdrawal_count: u64,
+}
+
+/// Account structure for a withdrawal proposal.
+#[account]
+pub struct WithdrawalProposal {
+    /// Amount (in lamports) proposed for withdrawal.
+    pub amount: u64,
+    /// Recipient account to which funds will be sent.
+    pub recipient: Pubkey,
+    /// List of multisig approvals (owner public keys) collected.
+    pub approvals: Vec<Pubkey>,
+    /// Whether this proposal has been executed.
+    pub executed: bool,
+}
+
+/// Initializes the DAO treasury.
+pub fn initialize_treasury(ctx: Context<InitializeTreasury>, owners: Vec<Pubkey>, threshold: u8) -> Result<()> {
+    let treasury = &mut ctx.accounts.treasury;
+    require!(owners.len() > 1 && owners.len() <= 10, GovernanceError::InvalidOwners);
+    require!(threshold > 0 && threshold <= owners.len() as u8, GovernanceError::InvalidThreshold);
+    treasury.owners = owners;
+    treasury.threshold = threshold;
+    treasury.withdrawal_count = 0;
+    msg!("DAO Treasury initialized with {} owners and threshold {}.", treasury.owners.len(), treasury.threshold);
+    Ok(())
+}
+
+/// Creates a new withdrawal proposal.
+pub fn create_withdrawal(ctx: Context<CreateWithdrawal>, amount: u64, recipient: Pubkey) -> Result<()> {
+    let withdrawal = &mut ctx.accounts.withdrawal;
+    withdrawal.amount = amount;
+    withdrawal.recipient = recipient;
+    withdrawal.approvals = Vec::new();
+    withdrawal.executed = false;
+    msg!("Withdrawal proposal created: {} lamports to {:?}", amount, recipient);
+    Ok(())
+}
+
+/// Approves a withdrawal proposal.
+pub fn approve_withdrawal(ctx: Context<ApproveWithdrawal>) -> Result<()> {
+    let treasury = &ctx.accounts.treasury;
+    let withdrawal = &mut ctx.accounts.withdrawal;
+    let signer = ctx.accounts.signer.key();
+    require!(treasury.owners.contains(&signer), GovernanceError::Unauthorized);
+    require!(!withdrawal.executed, GovernanceError::AlreadyExecuted);
+    if !withdrawal.approvals.contains(&signer) {
+        withdrawal.approvals.push(signer);
+        msg!("Approval added by {:?}", signer);
+    }
+    Ok(())
+}
+
+/// Executes a withdrawal proposal if sufficient approvals have been collected.
+pub fn execute_withdrawal(ctx: Context<ExecuteWithdrawal>) -> Result<()> {
+    let treasury = &ctx.accounts.treasury;
+    let withdrawal = &mut ctx.accounts.withdrawal;
+    require!(!withdrawal.executed, GovernanceError::AlreadyExecuted);
+    require!(withdrawal.approvals.len() as u8 >= treasury.threshold, GovernanceError::InsufficientApprovals);
+    let lamports = withdrawal.amount;
+    let treasury_account = ctx.accounts.treasury.to_account_info();
+    let recipient_account = ctx.accounts.recipient.to_account_info();
+    **treasury_account.try_borrow_mut_lamports()? -= lamports;
+    **recipient_account.try_borrow_mut_lamports()? += lamports;
+    withdrawal.executed = true;
+    msg!("Executed withdrawal of {} lamports to {:?}", lamports, withdrawal.recipient);
+    Ok(())
+}
+
+/// ---------------------------------------------------------------------
+/// Contexts for Treasury Instructions
+/// ---------------------------------------------------------------------
+
+#[derive(Accounts)]
+pub struct InitializeTreasury<'info> {
+    #[account(init, payer = signer, space = 8 + (32 * 10) + 1 + 8)]
+    pub treasury: Account<'info, Treasury>,
+    #[account(mut)]
+    pub signer: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct CreateWithdrawal<'info> {
+    #[account(mut)]
+    pub treasury: Account<'info, Treasury>,
+    #[account(init, payer = signer, space = 8 + 8 + 32 + (32 * 10) + 1)]
+    pub withdrawal: Account<'info, WithdrawalProposal>,
+    #[account(mut)]
+    pub signer: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct ApproveWithdrawal<'info> {
+    #[account(mut)]
+    pub treasury: Account<'info, Treasury>,
+    #[account(mut)]
+    pub withdrawal: Account<'info, WithdrawalProposal>,
+    /// CHECK: Authorized signer; no additional checks.
+    #[account(signer)]
+    pub signer: AccountInfo<'info>,
+}
+
+#[derive(Accounts)]
+pub struct ExecuteWithdrawal<'info> {
+    #[account(mut)]
+    pub treasury: Account<'info, Treasury>,
+    #[account(mut)]
+    pub withdrawal: Account<'info, WithdrawalProposal>,
+    /// CHECK: Recipient account; no additional checks.
+    #[account(mut)]
+    pub recipient: AccountInfo<'info>,
+}
 
 #[derive(Accounts)]
 pub struct SubmitProposal<'info> {
@@ -142,14 +258,25 @@ pub struct FinalizeProposal<'info> {
     pub admin: Signer<'info>,
 }
 
+
 #[error_code]
 pub enum GovernanceError {
     #[msg("Voting period has ended.")]
     VotingPeriodEnded,
     #[msg("Voting period is still active.")]
     VotingStillActive,
-    #[msg("Math error.")]
+    #[msg("Math error occurred.")]
     MathError,
+    #[msg("Unauthorized operation.")]
+    Unauthorized,
+    #[msg("Invalid number of multisig owners.")]
+    InvalidOwners,
+    #[msg("Invalid approval threshold.")]
+    InvalidThreshold,
+    #[msg("Withdrawal proposal already executed.")]
+    AlreadyExecuted,
+    #[msg("Insufficient approvals for withdrawal execution.")]
+    InsufficientApprovals,
 }
 
 #[event]

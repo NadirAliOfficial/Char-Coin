@@ -236,6 +236,21 @@ pub mod charcoin {
     pub fn finalize_proposal_handler(ctx: Context<FinalizeProposal>) -> Result<()> {
         governance::finalize_proposal(ctx)
     }
+
+    // Treasury (DAO) functions
+    pub fn initialize_treasury_handler(ctx: Context<InitializeTreasury>, owners: Vec<Pubkey>, threshold: u8) -> Result<()> {
+        initialize_treasury(ctx, owners, threshold)
+    }
+    pub fn create_withdrawal_handler(ctx: Context<CreateWithdrawal>, amount: u64, recipient: Pubkey) -> Result<()> {
+        create_withdrawal(ctx, amount, recipient)
+    }
+    pub fn approve_withdrawal_handler(ctx: Context<ApproveWithdrawal>) -> Result<()> {
+        approve_withdrawal(ctx)
+    }
+    pub fn execute_withdrawal_handler(ctx: Context<ExecuteWithdrawal>) -> Result<()> {
+        execute_withdrawal(ctx)
+    }
+
     // Marketing 
     pub fn distribute_marketing_funds_handler(ctx: Context<DistributeMarketingFunds>) -> Result<()> {
         marketing::distribute_marketing_funds(ctx)
