@@ -9,19 +9,25 @@ pub enum FundReleaseError {
 
 #[derive(Accounts)]
 pub struct ReleaseMonthlyFunds<'info> {
-    /// CHECK: This is the treasury token account holding funds to be distributed. 
-    /// Its data is validated by the SPL token program.
+    /// CHECK: Treasury token account holding funds to be distributed.
     #[account(mut)]
     pub treasury: UncheckedAccount<'info>,
-    /// Destination token account for staking rewards.
-    /// CHECK: This is the staking rewards token account.
+    /// CHECK: Destination token account for staking rewards (15%).
     #[account(mut)]
-    pub staking_rewards:  UncheckedAccount<'info>,
-    /// Destination token account for charity funds.
-    /// CHECK: This is the charity token account.
+    pub staking_rewards: UncheckedAccount<'info>,
+    /// CHECK: Destination token account for monthly rewards (7.5%).
     #[account(mut)]
-    pub charity_fund:  UncheckedAccount<'info>,
-    /// Authority for treasury withdrawals (typically a PDA or multisig signer).
+    pub monthly_reward: UncheckedAccount<'info>,
+    /// CHECK: Destination token account for annual rewards (7.5%).
+    #[account(mut)]
+    pub annual_reward: UncheckedAccount<'info>,
+    /// CHECK: Destination token account for immediate monthly donations (48%).
+    #[account(mut)]
+    pub monthly_donation: UncheckedAccount<'info>,
+    /// CHECK: Destination token account for annual reserved donations (12%).
+    #[account(mut)]
+    pub annual_charity: UncheckedAccount<'info>,
+    /// Authority for treasury withdrawals.
     pub treasury_authority: Signer<'info>,
     pub token_program: Program<'info, Token>,
 }
@@ -29,75 +35,135 @@ pub struct ReleaseMonthlyFunds<'info> {
 pub fn release_monthly_funds(
     ctx: Context<ReleaseMonthlyFunds>,
     total_amount: u64,
-    staking_pct: u8,
-    charity_pct: u8,
 ) -> Result<()> {
-    // Ensure percentages add up to 100.
-    require!(
-        (staking_pct as u64).checked_add(charity_pct as u64).unwrap() == 100,
-        FundReleaseError::InvalidPercentage
-    );
+    // Fixed distribution percentages from the CHAR Coin schema
+    let staking_percent = 15; // 15% to staking rewards
+    let donation_percent = 75; // 75% to donation ecosystem
 
+    // Calculate staking amount (15% of total)
     let staking_amount = total_amount
-        .checked_mul(staking_pct as u64)
-        .unwrap()
-        .checked_div(100)
-        .unwrap();
-    let charity_amount = total_amount
-        .checked_mul(charity_pct as u64)
+        .checked_mul(staking_percent as u64)
         .unwrap()
         .checked_div(100)
         .unwrap();
 
-    // Transfer funds to the staking rewards account.
-    {
-        let cpi_accounts = Transfer {
-            from: ctx.accounts.treasury.to_account_info(),
-            to: ctx.accounts.staking_rewards.to_account_info(),
-            authority: ctx.accounts.treasury_authority.to_account_info(),
-        };
-        let cpi_ctx = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
-        token::transfer(cpi_ctx, staking_amount)?;
-    }
+    // Calculate donation ecosystem total (75% of total)
+    let donation_total = total_amount
+        .checked_mul(donation_percent as u64)
+        .unwrap()
+        .checked_div(100)
+        .unwrap();
 
-    // Transfer funds to the charity fund account.
-    {
-        let cpi_accounts = Transfer {
-            from: ctx.accounts.treasury.to_account_info(),
-            to: ctx.accounts.charity_fund.to_account_info(),
-            authority: ctx.accounts.treasury_authority.to_account_info(),
-        };
-        let cpi_ctx = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
-        token::transfer(cpi_ctx, charity_amount)?;
-    }
-    
-    msg!("Monthly funds released: {} to staking rewards and {} to charity fund", staking_amount, charity_amount);
+    // Split donation into subcategories
+    let monthly_reward_amount = donation_total.checked_mul(10).unwrap().checked_div(100).unwrap(); // 10% of donation (7.5% total)
+    let annual_reward_amount = donation_total.checked_mul(10).unwrap().checked_div(100).unwrap(); // 10% of donation (7.5% total)
+    let monthly_donation_amount = donation_total.checked_mul(80).unwrap().checked_div(100).unwrap(); // 80% of donation (60% total)
+
+    // Split monthly donation into immediate and reserved portions
+    let monthly_donation_immediate = monthly_donation_amount.checked_mul(80).unwrap().checked_div(100).unwrap(); // 80% of monthly donation (48% total)
+    let monthly_donation_reserved = monthly_donation_amount.checked_mul(20).unwrap().checked_div(100).unwrap(); // 20% of monthly donation (12% total)
+
+    // Transfer to staking rewards
+    token::transfer(
+        CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            Transfer {
+                from: ctx.accounts.treasury.to_account_info(),
+                to: ctx.accounts.staking_rewards.to_account_info(),
+                authority: ctx.accounts.treasury_authority.to_account_info(),
+            },
+        ),
+        staking_amount,
+    )?;
+
+    // Transfer to monthly reward fund
+    token::transfer(
+        CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            Transfer {
+                from: ctx.accounts.treasury.to_account_info(),
+                to: ctx.accounts.monthly_reward.to_account_info(),
+                authority: ctx.accounts.treasury_authority.to_account_info(),
+            },
+        ),
+        monthly_reward_amount,
+    )?;
+
+    // Transfer to annual reward fund
+    token::transfer(
+        CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            Transfer {
+                from: ctx.accounts.treasury.to_account_info(),
+                to: ctx.accounts.annual_reward.to_account_info(),
+                authority: ctx.accounts.treasury_authority.to_account_info(),
+            },
+        ),
+        annual_reward_amount,
+    )?;
+
+    // Transfer to immediate monthly donation
+    token::transfer(
+        CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            Transfer {
+                from: ctx.accounts.treasury.to_account_info(),
+                to: ctx.accounts.monthly_donation.to_account_info(),
+                authority: ctx.accounts.treasury_authority.to_account_info(),
+            },
+        ),
+        monthly_donation_immediate,
+    )?;
+
+    // Transfer reserved portion to annual charity
+    token::transfer(
+        CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            Transfer {
+                from: ctx.accounts.treasury.to_account_info(),
+                to: ctx.accounts.annual_charity.to_account_info(),
+                authority: ctx.accounts.treasury_authority.to_account_info(),
+            },
+        ),
+        monthly_donation_reserved,
+    )?;
+
+    msg!(
+        "Monthly funds released: Staking={}, Monthly Reward={}, Annual Reward={}, Monthly Donation={}, Annual Reserved={}",
+        staking_amount,
+        monthly_reward_amount,
+        annual_reward_amount,
+        monthly_donation_immediate,
+        monthly_donation_reserved
+    );
     Ok(())
 }
 
 #[derive(Accounts)]
 pub struct ReleaseAnnualFunds<'info> {
-    /// CHECK: This is the treasury token account holding annual funds.
+    /// CHECK: Treasury token account holding annual funds.
     #[account(mut)]
     pub treasury: UncheckedAccount<'info>,
-    /// Destination token account for annual charity funds.
-    /// CHECK: This is the annual charity token account.
+    /// CHECK: Destination token account for annual charity funds.
     #[account(mut)]
-    pub annual_charity:  UncheckedAccount<'info>,
+    pub annual_charity: UncheckedAccount<'info>,
     /// Authority for treasury withdrawals.
     pub treasury_authority: Signer<'info>,
     pub token_program: Program<'info, Token>,
 }
 
 pub fn release_annual_funds(ctx: Context<ReleaseAnnualFunds>, annual_amount: u64) -> Result<()> {
-    let cpi_accounts = Transfer {
-        from: ctx.accounts.treasury.to_account_info(),
-        to: ctx.accounts.annual_charity.to_account_info(),
-        authority: ctx.accounts.treasury_authority.to_account_info(),
-    };
-    let cpi_ctx = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
-    token::transfer(cpi_ctx, annual_amount)?;
-    
-    msg!("Annual funds released: {} to annual charity fund", annual_amount);
+    token::transfer(
+        CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            Transfer {
+                from: ctx.accounts.treasury.to_account_info(),
+                to: ctx.accounts.annual_charity.to_account_info(),
+                authority: ctx.accounts.treasury_authority.to_account_info(),
+            },
+        ),
+        annual_amount,
+    )?;
+    msg!("Annual funds released: {}", annual_amount);
     Ok(())
 }

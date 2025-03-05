@@ -33,10 +33,21 @@ pub mod charcoin {
     use super::*;
 
      /// Initializes the global configuration.
-    pub fn initialize(ctx: Context<Initialize>, config: Config) -> Result<()> {
+     pub fn initialize(ctx: Context<Initialize>, config: Config) -> Result<()> {
         let config_account = &mut ctx.accounts.config;
         config_account.config = config;
-        msg!("CHAR Coin initialized with token supply: {}", config_account.config.token_supply);
+        
+        // Validate charity wallets
+        require!(
+            config_account.config.monthly_reward_wallet != Pubkey::default(),
+            ErrorCode::InvalidConfiguration
+        );
+        require!(
+            config_account.config.annual_charity_wallet != Pubkey::default(),
+            ErrorCode::InvalidConfiguration
+        );
+        
+        msg!("CHAR Coin initialized with donation wallets configured");
         Ok(())
     }
 
@@ -112,43 +123,75 @@ pub mod charcoin {
         Ok(())
     }
 
-    /// Transfers tokens with fee deduction.
-    pub fn transfer_tokens(ctx: Context<TransferTokens>, amount: u64) -> Result<()> {
-        // For demonstration, we do a 1% fee.
-        let fee = amount / 100;
-        let transfer_amount = amount
-            .checked_sub(fee)
-            .ok_or(ErrorCode::MathError)?;
+    /// Transfers tokens with automated fee distribution
+/// Transfers tokens with automated fee distribution
+pub fn transfer_tokens(ctx: Context<TransferTokens>, amount: u64) -> Result<()> {
+    // Calculate fees using fixed percentages from config
+    let donation_fee = amount
+        .checked_mul(ctx.accounts.config.config.donation_percentage as u64)
+        .and_then(|v| v.checked_div(100))
+        .ok_or(ErrorCode::MathError)?;
 
-        // Transfer fee to the fee_account.
-        let fee_ctx = CpiContext::new(
+    let staking_fee = amount
+        .checked_mul(ctx.accounts.config.config.staking_percentage as u64)
+        .and_then(|v| v.checked_div(100))
+        .ok_or(ErrorCode::MathError)?;
+
+    // Deduct fees from transfer amount
+    let transfer_amount = amount
+        .checked_sub(donation_fee)
+        .and_then(|v| v.checked_sub(staking_fee))
+        .ok_or(ErrorCode::MathError)?;
+
+    // Transfer donation fee to monthly donation wallet
+    token::transfer(
+        CpiContext::new(
             ctx.accounts.token_program.to_account_info(),
             Transfer {
                 from: ctx.accounts.from.to_account_info(),
-                to: ctx.accounts.fee_account.to_account_info(),
+                to: ctx.accounts.monthly_donation_wallet.to_account_info(),
                 authority: ctx.accounts.owner.to_account_info(),
             },
-        );
-        token::transfer(fee_ctx, fee)?;
+        ),
+        donation_fee,
+    )?;
 
-        // Transfer remaining tokens to the destination.
-        let transfer_ctx = CpiContext::new(
+    // Transfer staking fee to staking rewards wallet
+    token::transfer(
+        CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            Transfer {
+                from: ctx.accounts.from.to_account_info(),
+                to: ctx.accounts.staking_rewards_wallet.to_account_info(),
+                authority: ctx.accounts.owner.to_account_info(),
+            },
+        ),
+        staking_fee,
+    )?;
+
+    // Transfer remaining tokens to destination
+    token::transfer(
+        CpiContext::new(
             ctx.accounts.token_program.to_account_info(),
             Transfer {
                 from: ctx.accounts.from.to_account_info(),
                 to: ctx.accounts.destination.to_account_info(),
                 authority: ctx.accounts.owner.to_account_info(),
             },
-        );
-        token::transfer(transfer_ctx, transfer_amount)?;
+        ),
+        transfer_amount,
+    )?;
 
-        msg!(
-            "Transferred {} tokens (fee {} deducted)",
-            transfer_amount,
-            fee
-        );
-        Ok(())
-    }
+    msg!(
+        "Transferred {} tokens (Donation: {}, Staking: {})",
+        transfer_amount,
+        donation_fee,
+        staking_fee
+    );
+    Ok(())
+}
+
+
 
     /// Executes a buyback & burn via the `burn` module.
     pub fn execute_buyback_handler(
@@ -256,10 +299,8 @@ pub mod charcoin {
     pub fn release_monthly_funds_handler(
         ctx: Context<ReleaseMonthlyFunds>,
         total_amount: u64,
-        staking_pct: u8,
-        charity_pct: u8,
     ) -> Result<()> {
-        rewards::release_monthly_funds(ctx, total_amount, staking_pct, charity_pct)
+        rewards::release_monthly_funds(ctx, total_amount)
     }
 
     /// Releases annual funds from the treasury to the annual charity fund.
@@ -336,6 +377,10 @@ pub struct Config {
     // The fields below are used in your code, so we add them to avoid errors.
     pub admin: Pubkey,
     pub mint_authority_bump: u8,
+    pub monthly_reward_wallet: Pubkey,
+    pub annual_reward_wallet: Pubkey,
+    pub monthly_donation_wallet: Pubkey,
+    pub annual_charity_wallet: Pubkey,
 }
 
 /// Account that holds the global configuration.
@@ -390,20 +435,24 @@ pub struct BurnTokens<'info> {
 /// Accounts for transferring tokens.
 #[derive(Accounts)]
 pub struct TransferTokens<'info> {
-    /// CHECK: Source token account.
+    /// CHECK: Source token account
     #[account(mut)]
     pub from: UncheckedAccount<'info>,
-    /// CHECK: Fee collection account.
-    #[account(mut)]
-    pub fee_account: UncheckedAccount<'info>,
-    /// CHECK: Destination token account.
+    /// CHECK: Destination token account
     #[account(mut)]
     pub destination: UncheckedAccount<'info>,
-    /// CHECK: Owner of the token account.
+    /// CHECK: Monthly donation wallet
+    #[account(mut)]
+    pub monthly_donation_wallet: UncheckedAccount<'info>,
+    /// CHECK: Staking rewards wallet
+    #[account(mut)]
+    pub staking_rewards_wallet: UncheckedAccount<'info>,
+    /// CHECK: Token account owner
     pub owner: UncheckedAccount<'info>,
+    /// Global configuration account
+    pub config: Account<'info, ConfigAccount>,
     pub token_program: Program<'info, Token>,
 }
-
 
 /// Event to log supply updates.
 #[event]
@@ -418,4 +467,6 @@ pub enum ErrorCode {
     MathError,
     #[msg("Unauthorized operation.")]
     Unauthorized,
+    #[msg("Invalid wallet configuration")]
+    InvalidConfiguration,
 }
