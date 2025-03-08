@@ -35,6 +35,7 @@ pub fn submit_proposal(
     description: String,
     duration: i64,
 ) -> Result<()> {
+    let current_time = Clock::get()?.unix_timestamp;
     let proposal = &mut ctx.accounts.proposal;
     proposal.creator = ctx.accounts.creator.key();
     proposal.title = title;
@@ -42,8 +43,13 @@ pub fn submit_proposal(
     proposal.yes_votes = 0;
     proposal.no_votes = 0;
     proposal.status = ProposalStatus::Active;
-    proposal.end_time = Clock::get()?.unix_timestamp + duration;
+    proposal.end_time = current_time + duration;
     msg!("Proposal '{}' submitted by {}", proposal.title, proposal.creator);
+    emit!(ProposalSubmittedEvent {
+        proposal_creator: proposal.creator,
+        proposal_title: proposal.title.clone(),
+        timestamp: current_time,
+    });
     Ok(())
 }
 
@@ -54,8 +60,8 @@ pub fn vote_on_proposal(
     vote_choice: bool,
     amount_staked: u64,
 ) -> Result<()> {
-    let proposal = &mut ctx.accounts.proposal;
     let current_time = Clock::get()?.unix_timestamp;
+    let proposal = &mut ctx.accounts.proposal;
     require!(
         current_time < proposal.end_time,
         GovernanceError::VotingPeriodEnded
@@ -78,13 +84,21 @@ pub fn vote_on_proposal(
         proposal.yes_votes,
         proposal.no_votes
     );
+    emit!(VoteCastEvent {
+        proposal_id,
+        vote_choice,
+        amount_staked,
+        yes_votes: proposal.yes_votes,
+        no_votes: proposal.no_votes,
+        timestamp: current_time,
+    });
     Ok(())
 }
 
 /// Finalizes a proposal after voting has ended.
 pub fn finalize_proposal(ctx: Context<FinalizeProposal>) -> Result<()> {
-    let proposal = &mut ctx.accounts.proposal;
     let current_time = Clock::get()?.unix_timestamp;
+    let proposal = &mut ctx.accounts.proposal;
     require!(
         current_time >= proposal.end_time,
         GovernanceError::VotingStillActive
@@ -136,6 +150,7 @@ pub struct WithdrawalProposal {
 
 /// Initializes the DAO treasury.
 pub fn initialize_treasury(ctx: Context<InitializeTreasury>, owners: Vec<Pubkey>, threshold: u8) -> Result<()> {
+    let current_time = Clock::get()?.unix_timestamp;
     let treasury = &mut ctx.accounts.treasury;
     require!(owners.len() > 1 && owners.len() <= 10, GovernanceError::InvalidOwners);
     require!(threshold > 0 && threshold <= owners.len() as u8, GovernanceError::InvalidThreshold);
@@ -143,22 +158,34 @@ pub fn initialize_treasury(ctx: Context<InitializeTreasury>, owners: Vec<Pubkey>
     treasury.threshold = threshold;
     treasury.withdrawal_count = 0;
     msg!("DAO Treasury initialized with {} owners and threshold {}.", treasury.owners.len(), treasury.threshold);
+    emit!(TreasuryInitializedEvent {
+        owners_count: treasury.owners.len() as u64,
+        threshold: treasury.threshold,
+        timestamp: current_time,
+    });
     Ok(())
 }
 
 /// Creates a new withdrawal proposal.
 pub fn create_withdrawal(ctx: Context<CreateWithdrawal>, amount: u64, recipient: Pubkey) -> Result<()> {
+    let current_time = Clock::get()?.unix_timestamp;
     let withdrawal = &mut ctx.accounts.withdrawal;
     withdrawal.amount = amount;
     withdrawal.recipient = recipient;
     withdrawal.approvals = Vec::new();
     withdrawal.executed = false;
     msg!("Withdrawal proposal created: {} lamports to {:?}", amount, recipient);
+    emit!(WithdrawalProposalCreatedEvent {
+        amount,
+        recipient,
+        timestamp: current_time,
+    });
     Ok(())
 }
 
 /// Approves a withdrawal proposal.
 pub fn approve_withdrawal(ctx: Context<ApproveWithdrawal>) -> Result<()> {
+    let current_time = Clock::get()?.unix_timestamp;
     let treasury = &ctx.accounts.treasury;
     let withdrawal = &mut ctx.accounts.withdrawal;
     let signer = ctx.accounts.signer.key();
@@ -167,12 +194,18 @@ pub fn approve_withdrawal(ctx: Context<ApproveWithdrawal>) -> Result<()> {
     if !withdrawal.approvals.contains(&signer) {
         withdrawal.approvals.push(signer);
         msg!("Approval added by {:?}", signer);
+        emit!(WithdrawalApprovedEvent {
+            signer,
+            current_approvals: withdrawal.approvals.len() as u64,
+            timestamp: current_time,
+        });
     }
     Ok(())
 }
 
 /// Executes a withdrawal proposal if sufficient approvals have been collected.
 pub fn execute_withdrawal(ctx: Context<ExecuteWithdrawal>) -> Result<()> {
+    let current_time = Clock::get()?.unix_timestamp;
     let treasury = &ctx.accounts.treasury;
     let withdrawal = &mut ctx.accounts.withdrawal;
     require!(!withdrawal.executed, GovernanceError::AlreadyExecuted);
@@ -184,12 +217,15 @@ pub fn execute_withdrawal(ctx: Context<ExecuteWithdrawal>) -> Result<()> {
     **recipient_account.try_borrow_mut_lamports()? += lamports;
     withdrawal.executed = true;
     msg!("Executed withdrawal of {} lamports to {:?}", lamports, withdrawal.recipient);
+    emit!(WithdrawalExecutedEvent {
+        amount: lamports,
+        recipient: withdrawal.recipient,
+        timestamp: current_time,
+    });
     Ok(())
 }
 
-/// ---------------------------------------------------------------------
-/// Contexts for Treasury Instructions
-/// ---------------------------------------------------------------------
+// Contexts for Treasury Instructions
 
 #[derive(Accounts)]
 pub struct InitializeTreasury<'info> {
@@ -258,7 +294,6 @@ pub struct FinalizeProposal<'info> {
     pub admin: Signer<'info>,
 }
 
-
 #[error_code]
 pub enum GovernanceError {
     #[msg("Voting period has ended.")]
@@ -285,5 +320,50 @@ pub struct ProposalFinalizedEvent {
     pub status: ProposalStatus,
     pub yes_votes: u64,
     pub no_votes: u64,
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct ProposalSubmittedEvent {
+    pub proposal_creator: Pubkey,
+    pub proposal_title: String,
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct VoteCastEvent {
+    pub proposal_id: u64,
+    pub vote_choice: bool,
+    pub amount_staked: u64,
+    pub yes_votes: u64,
+    pub no_votes: u64,
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct TreasuryInitializedEvent {
+    pub owners_count: u64,
+    pub threshold: u8,
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct WithdrawalProposalCreatedEvent {
+    pub amount: u64,
+    pub recipient: Pubkey,
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct WithdrawalApprovedEvent {
+    pub signer: Pubkey,
+    pub current_approvals: u64,
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct WithdrawalExecutedEvent {
+    pub amount: u64,
+    pub recipient: Pubkey,
     pub timestamp: i64,
 }
