@@ -63,15 +63,15 @@ pub fn execute_buyback(
         .checked_add(tokens_to_buy)
         .ok_or(ErrorCode::MathError)?;
 
-    // Get the current timestamp.
-    let clock = Clock::get()?;
+    // Cache the current timestamp.
+    let current_time = Clock::get()?.unix_timestamp;
 
     // Emit an event logging the buyback and burn details.
     emit!(BuybackBurnEvent {
         fee_amount,
         tokens_bought: tokens_to_buy,
         new_total_burned: tracker.total_burned,
-        timestamp: clock.unix_timestamp,
+        timestamp: current_time,
     });
     msg!(
         "Executed buyback: fee_amount {} resulted in burning {} tokens.",
