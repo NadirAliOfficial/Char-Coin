@@ -22,15 +22,41 @@ pub enum VestingError {
     InsufficientFunds,
 }
 
+#[event]
+pub struct VestingInitializedEvent {
+    pub investor: Pubkey,
+    pub locked_amount: u64,
+    pub start_time: i64,
+}
+
+#[event]
+pub struct FundsDepositedEvent {
+    pub investor: Pubkey,
+    pub deposit_amount: u64,
+}
+
+#[event]
+pub struct TokensClaimedEvent {
+    pub investor: Pubkey,
+    pub claimed_amount: u64,
+    pub claim_time: i64,
+}
+
 /// Initializes a vesting account for a private sale investor.
 /// Tokens are locked at the current time and remain locked for 90 days.
 pub fn initialize_vesting(ctx: Context<InitializeVesting>, locked_amount: u64) -> Result<()> {
+    let current_time = Clock::get()?.unix_timestamp;
     let vesting = &mut ctx.accounts.vesting;
     vesting.investor = ctx.accounts.investor.key();
     vesting.locked_amount = locked_amount;
-    vesting.start_time = Clock::get()?.unix_timestamp;
+    vesting.start_time = current_time;
     vesting.claimed = false;
     msg!("Vesting account initialized for investor {} with locked amount {}", vesting.investor, locked_amount);
+    emit!(VestingInitializedEvent {
+        investor: vesting.investor,
+        locked_amount,
+        start_time: current_time,
+    });
     Ok(())
 }
 
@@ -44,6 +70,10 @@ pub fn deposit_funds(ctx: Context<DepositFunds>, deposit_amount: u64) -> Result<
     let cpi_ctx = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
     token::transfer(cpi_ctx, deposit_amount)?;
     msg!("Investor {} deposited {} funds into the private sale vault", ctx.accounts.investor.key(), deposit_amount);
+    emit!(FundsDepositedEvent {
+        investor: ctx.accounts.investor.key(),
+        deposit_amount,
+    });
     Ok(())
 }
 
@@ -51,9 +81,9 @@ pub fn deposit_funds(ctx: Context<DepositFunds>, deposit_amount: u64) -> Result<
 /// Sale tokens are transferred from the vault to the investor's token account.
 pub fn claim_tokens(ctx: Context<ClaimTokens>, sale_token_amount: u64) -> Result<()> {
     let vesting = &mut ctx.accounts.vesting;
-    let clock = Clock::get()?;
+    let current_time = Clock::get()?.unix_timestamp;
     require!(
-        clock.unix_timestamp >= vesting.start_time + NINETY_DAYS,
+        current_time >= vesting.start_time + NINETY_DAYS,
         VestingError::VestingPeriodNotCompleted
     );
     require!(!vesting.claimed, VestingError::AlreadyClaimed);
@@ -69,12 +99,18 @@ pub fn claim_tokens(ctx: Context<ClaimTokens>, sale_token_amount: u64) -> Result
     
     vesting.claimed = true;
     msg!("Investor {} claimed {} sale tokens", vesting.investor, sale_token_amount);
+    emit!(TokensClaimedEvent {
+        investor: vesting.investor,
+        claimed_amount: sale_token_amount,
+        claim_time: current_time,
+    });
     Ok(())
 }
 
 #[derive(Accounts)]
 pub struct InitializeVesting<'info> {
-    #[account(init, payer = investor, space = 8 + 32 + 8 + 1)]
+    // Increased allocated space: 8 (discriminator) + 32 (investor) + 8 (locked_amount) + 8 (start_time) + 1 (claimed) = 57 bytes.
+    #[account(init, payer = investor, space = 8 + 32 + 8 + 8 + 1)]
     pub vesting: Account<'info, VestingAccount>,
     #[account(mut)]
     pub investor: Signer<'info>,
