@@ -366,6 +366,8 @@ pub fn transfer_tokens(ctx: Context<TransferTokens>, amount: u64) -> Result<()> 
 
 }
 
+
+
 /// Stores global configuration for CHAR Coin.
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
 pub struct Config {

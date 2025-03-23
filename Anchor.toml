@@ -8,12 +8,14 @@ charcoin = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "https://api.devnet.solana.com"
-wallet = "/home/nadir-ali/.config/solana/id.json"
+cluster = "localnet"
+wallet = "/home/nadir/charcoin/keyk1FHhXGs82vJ2qecM8Rc96PXVvArVtNfoC8xEyKN.json"
+
 
 [scripts]
-test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
+test = "npm test"
 
 [test]
 startup_wait = 5000
 script = "yarn run test"
+test = "tests/burn.ts"
