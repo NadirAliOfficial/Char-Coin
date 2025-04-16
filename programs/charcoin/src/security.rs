@@ -1,6 +1,5 @@
 use anchor_lang::prelude::*;
 
-
 /// Context for initializing a multisig wallet.
 #[derive(Accounts)]
 pub struct InitializeMultisig<'info> {
@@ -15,7 +14,6 @@ pub struct InitializeMultisig<'info> {
     pub system_program: Program<'info, System>,
 }
 
-
 /// Parameters for multisig initialization.
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
 pub struct InitializeMultisigParams {
@@ -24,17 +22,28 @@ pub struct InitializeMultisigParams {
     pub wallet_type: WalletType,
 }
 
+/// Define a wallet type for clarity.
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub enum WalletType {
+    Marketing,
+    Donation,
+}
+
 /// Initializes a multisig wallet.
 pub fn initialize_multisig(
     ctx: Context<InitializeMultisig>,
     params: InitializeMultisigParams,
 ) -> Result<()> {
     let multisig = &mut ctx.accounts.multisig;
-    require!(params.owners.len() <= 10, MultisigError::TooManyOwners);
+    require!(params.owners.len() <= 4, MultisigError::TooManyOwners);
     multisig.owners = params.owners;
     multisig.threshold = params.threshold;
     multisig.wallet_type = params.wallet_type;
-    msg!("Initialized multisig wallet for {:?} with threshold {}.", multisig.wallet_type, multisig.threshold);
+    msg!(
+        "Initialized multisig wallet for {:?} with threshold {}.",
+        multisig.wallet_type,
+        multisig.threshold
+    );
     Ok(())
 }
 
@@ -56,23 +65,18 @@ pub fn verify_multisig(ctx: &Context<ExecuteMultisig>) -> Result<()> {
         valid_signers >= multisig.threshold as usize,
         MultisigError::NotEnoughSignatures
     );
-    msg!("Multisig approval successful with {} valid signers.", valid_signers);
+    msg!(
+        "Multisig approval successful with {} valid signers.",
+        valid_signers
+    );
     Ok(())
 }
-
 
 /// Account to track tokens burned.
 #[account]
 pub struct BurnTracker {
     /// The total number of tokens burned.
     pub total_burned: u64,
-}
-
-/// Define a wallet type for clarity.
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
-pub enum WalletType {
-    Marketing,
-    Donation,
 }
 
 /// Multisig account that holds the configuration for multisig approvals.
@@ -103,7 +107,6 @@ pub struct ExecuteMultisig<'info> {
     pub signer3: AccountInfo<'info>,
 }
 
-
 /// Error codes for multisig functions.
 #[error_code]
 pub enum MultisigError {
@@ -112,7 +115,6 @@ pub enum MultisigError {
     #[msg("Too many owners provided; maximum allowed is 10.")]
     TooManyOwners,
 }
-
 
 /// ---------------------------------------------------------------------------
 /// Emergency Halt Implementation
@@ -123,13 +125,36 @@ pub struct EmergencyState {
     pub halted: bool,
 }
 
+#[derive(Accounts)]
+pub struct InitializeEmergencyState<'info> {
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + 1
+    )]
+    pub emergency_state: Account<'info, EmergencyState>,
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+/// Initializes a multisig wallet.
+pub fn initialize_emergency_state(
+    ctx: Context<InitializeEmergencyState>,
+    state: bool,
+) -> Result<()> {
+    let emergency_state = &mut ctx.accounts.emergency_state;
+    emergency_state.halted = state;
+    Ok(())
+}
+
 /// Context for activating an emergency halt.
 #[derive(Accounts)]
 pub struct EmergencyHalt<'info> {
     #[account(mut)]
     pub emergency_state: Account<'info, EmergencyState>,
     /// CHECK: This account is the authorized authority and is expected to be a valid signer. No further checks are needed.
-     #[account(signer)]
+    #[account(signer)]
     pub authority: AccountInfo<'info>,
 }
 
@@ -146,7 +171,7 @@ pub fn emergency_halt(ctx: Context<EmergencyHalt>) -> Result<()> {
 pub struct EmergencyUnhalt<'info> {
     #[account(mut)]
     pub emergency_state: Account<'info, EmergencyState>,
-     /// CHECK: This account is the authorized authority and is expected to be a valid signer. No further checks are needed.
+    /// CHECK: This account is the authorized authority and is expected to be a valid signer. No further checks are needed.
     #[account(signer)]
     pub authority: AccountInfo<'info>,
 }

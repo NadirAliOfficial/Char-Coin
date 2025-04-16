@@ -5,13 +5,12 @@ use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 pub fn stake_tokens(ctx: Context<Stake>, amount: u64, lockup: u64) -> Result<()> {
     let staking_pool = &mut ctx.accounts.staking_pool;
     let user = &mut ctx.accounts.user;
-    staking_pool.total_staked += amount;
 
     require!(
         lockup == 30 || lockup == 90 || lockup == 180,
         StakingError::WrongStakingPackage
     );
-    require!(user.amount != 0, StakingError::AlreadyStaked);
+    //require!(user.amount != 0, StakingError::AlreadyStaked);
     let clock = Clock::get()?;
     // Transfer tokens from user to pool
     let cpi_accounts = Transfer {
@@ -26,19 +25,18 @@ pub fn stake_tokens(ctx: Context<Stake>, amount: u64, lockup: u64) -> Result<()>
     // Update user staking info
     user.authority = ctx.accounts.user_authority.key();
     user.staking_pool = staking_pool.key();
-    user.amount = amount;
+    user.amount += amount;
     user.staked_at = clock.unix_timestamp;
     user.lockup = lockup;
     user.bump = ctx.bumps.user;
-
+    //staking_pool.total_staked += amount;
     msg!("Staked {} tokens", amount);
     Ok(())
 }
 
 pub fn unstake_tokens(ctx: Context<Unstake>) -> Result<()> {
     let user = &mut ctx.accounts.user;
-    let staking_pool = &mut ctx.accounts.staking_pool;
-    staking_pool.total_staked -= user.amount;
+    let staking_pool = &ctx.accounts.staking_pool;
     let clock = Clock::get()?;
 
     // Check if user has staked tokens
@@ -76,8 +74,8 @@ pub fn unstake_tokens(ctx: Context<Unstake>) -> Result<()> {
     let amount = user.amount;
     user.amount = 0;
     user.staked_at = 0;
-    let staking_pool = &mut ctx.accounts.staking_pool;
-    staking_pool.total_staked -= amount;
+    //let staking_pool = &mut ctx.accounts.staking_pool;
+    // staking_pool.total_staked -= amount;
 
     msg!("Unstaked {} tokens", amount_to_return);
     Ok(())
@@ -102,7 +100,7 @@ pub fn claim_reward(ctx: Context<ClaimReward>) -> Result<()> {
     let user = &mut ctx.accounts.user;
     let clock = Clock::get()?;
     let min_staking_duration = user.lockup * 24 * 60 * 60; // days in seconds                                                       //  Check if user has staked tokens
-    require!(user.amount > 0, StakingError::NoStakedTokens);
+                                                           // require!(user.amount > 0, StakingError::NoStakedTokens);
 
     // Calculate staking duration
     let staking_duration: i64 = clock
@@ -136,7 +134,7 @@ pub fn claim_reward(ctx: Context<ClaimReward>) -> Result<()> {
     user.staked_at += (min_staking_duration * periods) as i64;
 
     let staking_pool = &mut ctx.accounts.staking_pool;
-    staking_pool.reward_issued += reward_amount as i64;
+    // staking_pool.reward_issued += reward_amount as i64;
     msg!("Claimed reward of {} tokens", reward_amount);
     Ok(())
 }
@@ -167,8 +165,7 @@ pub struct StakeInitialize<'info> {
 
 #[derive(Accounts)]
 pub struct Stake<'info> {
-    #[account(
-        seeds = [b"staking_pool".as_ref(), staking_pool.token_mint.as_ref()],
+    #[account(seeds = [b"staking_pool".as_ref(), staking_pool.token_mint.as_ref()],
         bump = staking_pool.bump,
     )]
     pub staking_pool: Account<'info, StakingPool>,
@@ -192,9 +189,7 @@ pub struct Stake<'info> {
     )]
     pub user_token_account: Account<'info, TokenAccount>,
 
-    #[account(
-        mut,
-        constraint = pool_token_account.key() == staking_pool.pool_token_account
+    #[account(constraint = pool_token_account.key() == staking_pool.pool_token_account
     )]
     pub pool_token_account: Account<'info, TokenAccount>,
 
@@ -205,8 +200,7 @@ pub struct Stake<'info> {
 
 #[derive(Accounts)]
 pub struct Unstake<'info> {
-    #[account(
-        seeds = [b"staking_pool".as_ref(), staking_pool.token_mint.as_ref()],
+    #[account(seeds = [b"staking_pool".as_ref(), staking_pool.token_mint.as_ref()],
         bump = staking_pool.bump,
     )]
     pub staking_pool: Account<'info, StakingPool>,

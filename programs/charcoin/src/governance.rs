@@ -10,22 +10,22 @@ pub enum ProposalStatus {
 
 #[account]
 pub struct Proposal {
-    pub id: u64,                  // Unique proposal ID
-    pub creator: Pubkey,          // Creator of the proposal
-    pub title: String,            // Title of the proposal
-    pub description: String,      // Detailed description
-    pub yes_votes: u64,           // Total yes votes (weighted)
-    pub no_votes: u64,            // Total no votes (weighted)
-    pub status: ProposalStatus,   // Current status
-    pub end_time: i64,            // Voting deadline (unix timestamp)
+    pub id: u64,                // Unique proposal ID
+    pub creator: Pubkey,        // Creator of the proposal
+    pub title: String,          // Title of the proposal
+    pub description: String,    // Detailed description
+    pub yes_votes: u64,         // Total yes votes (weighted)
+    pub no_votes: u64,          // Total no votes (weighted)
+    pub status: ProposalStatus, // Current status
+    pub end_time: i64,          // Voting deadline (unix timestamp)
 }
 
 #[account]
 pub struct Vote {
-    pub proposal_id: u64,         // Associated proposal ID
-    pub voter: Pubkey,            // Voter's public key
-    pub amount_staked: u64,       // Voting power (staked tokens)
-    pub vote_choice: bool,        // true for Yes, false for No
+    pub proposal_id: u64,   // Associated proposal ID
+    pub voter: Pubkey,      // Voter's public key
+    pub amount_staked: u64, // Voting power (staked tokens)
+    pub vote_choice: bool,  // true for Yes, false for No
 }
 
 /// Submits a new proposal.
@@ -44,7 +44,11 @@ pub fn submit_proposal(
     proposal.no_votes = 0;
     proposal.status = ProposalStatus::Active;
     proposal.end_time = current_time + duration;
-    msg!("Proposal '{}' submitted by {}", proposal.title, proposal.creator);
+    msg!(
+        "Proposal '{}' submitted by {}",
+        proposal.title,
+        proposal.creator
+    );
     emit!(ProposalSubmittedEvent {
         proposal_creator: proposal.creator,
         proposal_title: proposal.title.clone(),
@@ -149,15 +153,29 @@ pub struct WithdrawalProposal {
 }
 
 /// Initializes the DAO treasury.
-pub fn initialize_treasury(ctx: Context<InitializeTreasury>, owners: Vec<Pubkey>, threshold: u8) -> Result<()> {
+pub fn initialize_treasury(
+    ctx: Context<InitializeTreasury>,
+    owners: Vec<Pubkey>,
+    threshold: u8,
+) -> Result<()> {
     let current_time = Clock::get()?.unix_timestamp;
     let treasury = &mut ctx.accounts.treasury;
-    require!(owners.len() > 1 && owners.len() <= 10, GovernanceError::InvalidOwners);
-    require!(threshold > 0 && threshold <= owners.len() as u8, GovernanceError::InvalidThreshold);
+    require!(
+        owners.len() > 1 && owners.len() <= 10,
+        GovernanceError::InvalidOwners
+    );
+    require!(
+        threshold > 0 && threshold <= owners.len() as u8,
+        GovernanceError::InvalidThreshold
+    );
     treasury.owners = owners;
     treasury.threshold = threshold;
     treasury.withdrawal_count = 0;
-    msg!("DAO Treasury initialized with {} owners and threshold {}.", treasury.owners.len(), treasury.threshold);
+    msg!(
+        "DAO Treasury initialized with {} owners and threshold {}.",
+        treasury.owners.len(),
+        treasury.threshold
+    );
     emit!(TreasuryInitializedEvent {
         owners_count: treasury.owners.len() as u64,
         threshold: treasury.threshold,
@@ -167,14 +185,22 @@ pub fn initialize_treasury(ctx: Context<InitializeTreasury>, owners: Vec<Pubkey>
 }
 
 /// Creates a new withdrawal proposal.
-pub fn create_withdrawal(ctx: Context<CreateWithdrawal>, amount: u64, recipient: Pubkey) -> Result<()> {
+pub fn create_withdrawal(
+    ctx: Context<CreateWithdrawal>,
+    amount: u64,
+    recipient: Pubkey,
+) -> Result<()> {
     let current_time = Clock::get()?.unix_timestamp;
     let withdrawal = &mut ctx.accounts.withdrawal;
     withdrawal.amount = amount;
     withdrawal.recipient = recipient;
     withdrawal.approvals = Vec::new();
     withdrawal.executed = false;
-    msg!("Withdrawal proposal created: {} lamports to {:?}", amount, recipient);
+    msg!(
+        "Withdrawal proposal created: {} lamports to {:?}",
+        amount,
+        recipient
+    );
     emit!(WithdrawalProposalCreatedEvent {
         amount,
         recipient,
@@ -189,7 +215,10 @@ pub fn approve_withdrawal(ctx: Context<ApproveWithdrawal>) -> Result<()> {
     let treasury = &ctx.accounts.treasury;
     let withdrawal = &mut ctx.accounts.withdrawal;
     let signer = ctx.accounts.signer.key();
-    require!(treasury.owners.contains(&signer), GovernanceError::Unauthorized);
+    require!(
+        treasury.owners.contains(&signer),
+        GovernanceError::Unauthorized
+    );
     require!(!withdrawal.executed, GovernanceError::AlreadyExecuted);
     if !withdrawal.approvals.contains(&signer) {
         withdrawal.approvals.push(signer);
@@ -209,14 +238,21 @@ pub fn execute_withdrawal(ctx: Context<ExecuteWithdrawal>) -> Result<()> {
     let treasury = &ctx.accounts.treasury;
     let withdrawal = &mut ctx.accounts.withdrawal;
     require!(!withdrawal.executed, GovernanceError::AlreadyExecuted);
-    require!(withdrawal.approvals.len() as u8 >= treasury.threshold, GovernanceError::InsufficientApprovals);
+    require!(
+        withdrawal.approvals.len() as u8 >= treasury.threshold,
+        GovernanceError::InsufficientApprovals
+    );
     let lamports = withdrawal.amount;
     let treasury_account = ctx.accounts.treasury.to_account_info();
     let recipient_account = ctx.accounts.recipient.to_account_info();
     **treasury_account.try_borrow_mut_lamports()? -= lamports;
     **recipient_account.try_borrow_mut_lamports()? += lamports;
     withdrawal.executed = true;
-    msg!("Executed withdrawal of {} lamports to {:?}", lamports, withdrawal.recipient);
+    msg!(
+        "Executed withdrawal of {} lamports to {:?}",
+        lamports,
+        withdrawal.recipient
+    );
     emit!(WithdrawalExecutedEvent {
         amount: lamports,
         recipient: withdrawal.recipient,
