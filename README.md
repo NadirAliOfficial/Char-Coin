@@ -162,19 +162,3 @@ Express API server (located in the `api` folder) is provided for interacting wit
 - Managing staking and vesting.
 
 Refer to the IDL in the `target/idl` directory for a complete list of instructions and account structures.
-
----
-
-## Roadmap
-
-**Phase 1: Smart Contract Development** (Feb 2025 - Mar 2025)  
-- Implement core functionalities (tokenomics, staking, governance, etc.).
-
-**Phase 2: Internal Testing & Optimization** (Mar 2025)  
-- Conduct extensive testing, gas optimization, and security audits.
-
-**Phase 3: Solana Mainnet Deployment** (Mar 2025)  
-- Deploy the contract on Solana Mainnet after thorough testing.
-
-**Phase 4: Web App Integration & Launch** (Q2 2025)  
-- Integrate with a user-friendly frontend for ecosystem participation.
