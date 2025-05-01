@@ -4,7 +4,7 @@
 
 ---
 
-## Overview
+## Overview CHAR Coin Test Branch
 
 CHAR Coin is a Solana-based SPL token designed to facilitate automated donations, dynamic staking rewards, and decentralized governance. Built with Rust and the Anchor framework, the smart contract ensures secure, transparent, and automated fund distribution. Users can stake tokens, vote on proposals, and participate in a deflationary ecosystem that supports charitable causes and community decisions.
 
