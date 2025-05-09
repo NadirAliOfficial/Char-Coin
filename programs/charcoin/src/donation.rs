@@ -21,9 +21,9 @@ pub struct Charity {
 
 #[account]
 pub struct VoteRecord {
-    pub charity: Pubkey,     // Charity this vote is for
-    pub voter: Pubkey,       // Voter's public key
-    pub vote_weight: u64,    // Voting weight (based on staked tokens)
+    pub charity: Pubkey,  // Charity this vote is for
+    pub voter: Pubkey,    // Voter's public key
+    pub vote_weight: u64, // Voting weight (based on staked tokens)
 }
 
 #[error_code]
@@ -82,25 +82,45 @@ pub fn cast_vote(ctx: Context<CastVote>, vote_weight: u64) -> Result<()> {
             .total_votes
             .checked_add(vote_weight)
             .ok_or(CharityError::MathError)?;
-        msg!("Voter {} cast {} votes for charity {}", vote_record.voter, vote_weight, charity.name);
+        msg!(
+            "Voter {} cast {} votes for charity {}",
+            vote_record.voter,
+            vote_weight,
+            charity.name
+        );
     } else {
         // Update existing vote.
         if vote_weight > vote_record.vote_weight {
-            let diff = vote_weight.checked_sub(vote_record.vote_weight).ok_or(CharityError::MathError)?;
+            let diff = vote_weight
+                .checked_sub(vote_record.vote_weight)
+                .ok_or(CharityError::MathError)?;
             charity.total_votes = charity
                 .total_votes
                 .checked_add(diff)
                 .ok_or(CharityError::MathError)?;
             vote_record.vote_weight = vote_weight;
-            msg!("Voter {} increased vote by {} for charity {}", vote_record.voter, diff, charity.name);
+            msg!(
+                "Voter {} increased vote by {} for charity {}",
+                vote_record.voter,
+                diff,
+                charity.name
+            );
         } else {
-            let diff = vote_record.vote_weight.checked_sub(vote_weight).ok_or(CharityError::MathError)?;
+            let diff = vote_record
+                .vote_weight
+                .checked_sub(vote_weight)
+                .ok_or(CharityError::MathError)?;
             charity.total_votes = charity
                 .total_votes
                 .checked_sub(diff)
                 .ok_or(CharityError::MathError)?;
             vote_record.vote_weight = vote_weight;
-            msg!("Voter {} decreased vote by {} for charity {}", vote_record.voter, diff, charity.name);
+            msg!(
+                "Voter {} decreased vote by {} for charity {}",
+                vote_record.voter,
+                diff,
+                charity.name
+            );
         }
     }
     Ok(())
@@ -110,12 +130,13 @@ pub fn cast_vote(ctx: Context<CastVote>, vote_weight: u64) -> Result<()> {
 pub fn finalize_charity_vote(ctx: Context<FinalizeCharityVote>) -> Result<()> {
     let clock = Clock::get()?.unix_timestamp;
     let charity = &mut ctx.accounts.charity;
-    require!(
-        clock > charity.end_time,
-        CharityError::VotingEnded
-    );
+    require!(clock > charity.end_time, CharityError::VotingEnded);
     charity.status = CharityStatus::Finalized;
-    msg!("Charity '{}' finalized with {} total votes", charity.name, charity.total_votes);
+    msg!(
+        "Charity '{}' finalized with {} total votes",
+        charity.name,
+        charity.total_votes
+    );
     Ok(())
 }
 

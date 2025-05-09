@@ -3,17 +3,23 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Burn, MintTo, Token, Transfer};
 
+// Modules
 pub mod donation;
 pub mod governance;
+pub mod marketing;
+pub mod rewards;
 pub mod security;
 pub mod staking;
 
+// Re-export public items
 pub use donation::*;
 pub use governance::*;
+pub use marketing::*;
+pub use rewards::*;
 pub use security::*;
 pub use staking::*;
 
-declare_id!("3Ft1CKf4SZwgRk8wR3L3Gnmu1AjKYZbDJS66KGAkKqFE");
+declare_id!("A9hZQ1EZLM9smeBEEauoykqCue5MsKVesSCVpk93euuM");
 
 #[program]
 pub mod charcoin {
@@ -38,7 +44,7 @@ pub mod charcoin {
         Ok(())
     }
 
-    pub fn staking_initialize(ctx: Context<StakeInitialize>, reward_rate: u64) -> Result<()> {
+    pub fn staking_initialize(ctx: Context<StakeInitialize>) -> Result<()> {
         let staking_pool = &mut ctx.accounts.staking_pool;
         staking_pool.authority = ctx.accounts.authority.key();
         staking_pool.token_mint = ctx.accounts.token_mint.key();
@@ -159,6 +165,30 @@ pub mod charcoin {
     /// Finalizes charity voting after the voting period ends.
     pub fn finalize_charity_vote_handler(ctx: Context<FinalizeCharityVote>) -> Result<()> {
         donation::finalize_charity_vote(ctx)
+    }
+
+    //  Rewards
+    /// Releases monthly funds from the treasury to staking rewards and charity fund.
+    pub fn release_monthly_funds_handler(
+        ctx: Context<ReleaseMonthlyFunds>,
+        total_amount: u64,
+    ) -> Result<()> {
+        rewards::release_monthly_funds(ctx, total_amount)
+    }
+
+    /// Releases annual funds from the treasury to the annual charity fund.
+    pub fn release_annual_funds_handler(
+        ctx: Context<ReleaseAnnualFunds>,
+        annual_amount: u64,
+    ) -> Result<()> {
+        rewards::release_annual_funds(ctx, annual_amount)
+    }
+
+    // Marketing
+    pub fn distribute_marketing_funds_handler(
+        ctx: Context<DistributeMarketingFunds>,
+    ) -> Result<()> {
+        marketing::distribute_marketing_funds(ctx)
     }
 
 }

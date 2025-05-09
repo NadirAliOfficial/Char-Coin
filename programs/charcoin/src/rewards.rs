@@ -32,10 +32,7 @@ pub struct ReleaseMonthlyFunds<'info> {
     pub token_program: Program<'info, Token>,
 }
 
-pub fn release_monthly_funds(
-    ctx: Context<ReleaseMonthlyFunds>,
-    total_amount: u64,
-) -> Result<()> {
+pub fn release_monthly_funds(ctx: Context<ReleaseMonthlyFunds>, total_amount: u64) -> Result<()> {
     // Fixed distribution percentages from the CHAR Coin schema
     let staking_percent = 15; // 15% to staking rewards
     let donation_percent = 75; // 75% to donation ecosystem
@@ -55,13 +52,33 @@ pub fn release_monthly_funds(
         .unwrap();
 
     // Split donation into subcategories
-    let monthly_reward_amount = donation_total.checked_mul(10).unwrap().checked_div(100).unwrap(); // 10% of donation (7.5% total)
-    let annual_reward_amount = donation_total.checked_mul(10).unwrap().checked_div(100).unwrap(); // 10% of donation (7.5% total)
-    let monthly_donation_amount = donation_total.checked_mul(80).unwrap().checked_div(100).unwrap(); // 80% of donation (60% total)
+    let monthly_reward_amount = donation_total
+        .checked_mul(10)
+        .unwrap()
+        .checked_div(100)
+        .unwrap(); // 10% of donation (7.5% total)
+    let annual_reward_amount = donation_total
+        .checked_mul(10)
+        .unwrap()
+        .checked_div(100)
+        .unwrap(); // 10% of donation (7.5% total)
+    let monthly_donation_amount = donation_total
+        .checked_mul(80)
+        .unwrap()
+        .checked_div(100)
+        .unwrap(); // 80% of donation (60% total)
 
     // Split monthly donation into immediate and reserved portions
-    let monthly_donation_immediate = monthly_donation_amount.checked_mul(80).unwrap().checked_div(100).unwrap(); // 80% of monthly donation (48% total)
-    let monthly_donation_reserved = monthly_donation_amount.checked_mul(20).unwrap().checked_div(100).unwrap(); // 20% of monthly donation (12% total)
+    let monthly_donation_immediate = monthly_donation_amount
+        .checked_mul(80)
+        .unwrap()
+        .checked_div(100)
+        .unwrap(); // 80% of monthly donation (48% total)
+    let monthly_donation_reserved = monthly_donation_amount
+        .checked_mul(20)
+        .unwrap()
+        .checked_div(100)
+        .unwrap(); // 20% of monthly donation (12% total)
 
     // Transfer to staking rewards
     token::transfer(

@@ -9,3 +9,6 @@ resolver = "2"
 
 [profile.release]
 overflow-checks = true
+
+[patch.crates-io]
+solana-program = "=1.16.24"

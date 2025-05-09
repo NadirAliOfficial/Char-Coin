@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::clock::Clock;
-use anchor_spl::token::{self, Transfer, Token};
+use anchor_spl::token::{self, Token, Transfer};
 
 #[derive(Accounts)]
 pub struct DistributeMarketingFunds<'info> {
@@ -19,7 +19,7 @@ pub struct DistributeMarketingFunds<'info> {
     /// CHECK: Approved multisig signer.
     #[account(signer)]
     pub signer3: AccountInfo<'info>,
-   /// CHECK: This is the source token account from which funds are withdrawn. Its validity is managed by the token program.
+    /// CHECK: This is the source token account from which funds are withdrawn. Its validity is managed by the token program.
     #[account(mut)]
     pub source: AccountInfo<'info>,
     /// Destination account for Marketing Wallet 1 funds.
@@ -51,7 +51,7 @@ pub fn distribute_marketing_funds(ctx: Context<DistributeMarketingFunds>) -> Res
     // Calculate distribution amounts.
     let amount_wallet1 = (total * 425) / 1000; // 42.5%
     let amount_wallet2 = (total * 425) / 1000; // 42.5%
-    let amount_death = (total * 150) / 1000;   // 15%
+    let amount_death = (total * 150) / 1000; // 15%
 
     // Execute transfers from source to destination accounts.
     // (Here we assume that multisig approval has been verified separately.)
