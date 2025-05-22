@@ -1,15 +1,12 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
-    "module": "CommonJS",
-    "moduleResolution": "Node",
+    "types": ["mocha", "chai"],
+    "typeRoots": ["./node_modules/@types"],
+    "lib": ["es2015"],
+    "module": "commonjs",
+    "target": "es6",
     "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "strict": true,
-    "skipLibCheck": true,
-    "resolveJsonModule": true,
-    "types": ["mocha", "chai", "node"]
-  },
-  "include": ["tests/**/*.ts"],
-  "exclude": ["node_modules"]
+    "resolveJsonModule": true,      // <‑‑ allow `import x from "file.json"`
+
+  }
 }

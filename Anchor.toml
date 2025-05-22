@@ -1,21 +1,22 @@
+[toolchain]
+
 [features]
-seeds = false
+resolution = true
 skip-lint = false
+
+[programs.devnet]
+char-coin = "2Vr5kVWNUJnY7bkSRM1NQ3tGsory7M9rWavDzgWAATdR"
+gwim_staking_clean = "P62DXPtDL9S68D34mKJ1LNDLRuXSf4Cy63hi5aNVYjR"
+
 [programs.localnet]
-charcoin = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+gwim_staking_clean = "P62DXPtDL9S68D34mKJ1LNDLRuXSf4Cy63hi5aNVYjR"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "localnet"
-wallet = "/home/nadir/charcoin/keyk1FHhXGs82vJ2qecM8Rc96PXVvArVtNfoC8xEyKN.json"
-
+cluster = "Devnet"
+wallet = "~/.config/solana/id.json"
 
 [scripts]
-test = "npm test"
-
-[test]
-startup_wait = 5000
-script = "yarn run test"
-test = "tests/burn.ts"
+test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"

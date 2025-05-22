@@ -1,5 +1,4 @@
-#![allow(unexpected_cfgs)]
-#[allow(ambiguous_glob_reexports)]
+
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Burn, MintTo, Token, Transfer};
 
@@ -221,7 +220,8 @@ pub struct ConfigAccount {
 pub struct Initialize<'info> {
     #[account(init, payer = user, space = 8 + 256)]
     pub config: Account<'info, ConfigAccount>,
-    // CHECK: SPL Token mint account; its data is managed by the token program.
+    /// CHECK: SPL Token mint account; its data is managed by the token program.
+    #[account(mut)]
     pub mint: UncheckedAccount<'info>,
     #[account(mut)]
     pub user: Signer<'info>,
@@ -231,13 +231,13 @@ pub struct Initialize<'info> {
 /// Accounts for minting tokens.
 #[derive(Accounts)]
 pub struct MintTokens<'info> {
-    // CHECK: SPL Token mint account.
+    /// CHECK: SPL Token mint account.
     #[account(mut)]
     pub mint: UncheckedAccount<'info>,
-    // CHECK: Destination token account.
+    /// CHECK: Destination token account.
     #[account(mut)]
     pub destination: UncheckedAccount<'info>,
-    // CHECK: PDA mint authority.
+    /// CHECK: PDA mint authority.
     pub mint_authority: UncheckedAccount<'info>,
     #[account(address = config.config.admin)]
     pub admin: Signer<'info>,
@@ -248,13 +248,13 @@ pub struct MintTokens<'info> {
 /// Accounts for burning tokens.
 #[derive(Accounts)]
 pub struct BurnTokens<'info> {
-    // CHECK: SPL Token mint account.
+    /// CHECK: SPL Token mint account.
     #[account(mut)]
     pub mint: UncheckedAccount<'info>,
-    // CHECK: Token account from which tokens will be burned.
+    /// CHECK: Token account from which tokens will be burned.
     #[account(mut)]
     pub token_account: UncheckedAccount<'info>,
-    // CHECK: Owner of the token account.
+    /// CHECK: Owner of the token account.
     pub owner: UncheckedAccount<'info>,
     pub token_program: Program<'info, Token>,
 }
@@ -262,19 +262,19 @@ pub struct BurnTokens<'info> {
 /// Accounts for transferring tokens.
 #[derive(Accounts)]
 pub struct TransferTokens<'info> {
-    // CHECK: Source token account
+    /// CHECK: Source token account
     #[account(mut)]
     pub from: UncheckedAccount<'info>,
-    // CHECK: Destination token account
+    /// CHECK: Destination token account
     #[account(mut)]
     pub destination: UncheckedAccount<'info>,
-    // CHECK: Monthly donation wallet
+    /// CHECK: Monthly donation wallet
     #[account(mut)]
     pub monthly_donation_wallet: UncheckedAccount<'info>,
-    // CHECK: Staking rewards wallet
+    /// CHECK: Staking rewards wallet
     #[account(mut)]
     pub staking_rewards_wallet: UncheckedAccount<'info>,
-    // CHECK: Token account owner
+    /// CHECK: Token account owner
     pub owner: UncheckedAccount<'info>,
     // Global configuration account
     pub config: Account<'info, ConfigAccount>,
