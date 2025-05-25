@@ -5,20 +5,20 @@ use anchor_spl::{ token::{self, Token,Burn, Transfer}};
 #[derive(Accounts)]
 pub struct DistributeMarketingFunds<'info> {
     /// The marketing wallet that tracks allocated funds.
-    #[account(mut)]
-    pub marketing_wallet: Account<'info, MarketingWallet>,
+    // #[account(mut)]
+    // pub marketing_wallet: Account<'info, MarketingWallet>,
     /// The multisig configuration account (for approval, if needed).
-    #[account(mut)]
-    pub multisig: Account<'info, crate::security::Multisig>,
+    // #[account(mut)]
+    // pub multisig: Account<'info, crate::security::Multisig>,
     /// CHECK: Approved multisig signer.
     #[account(signer)]
     pub signer1: AccountInfo<'info>,
-    /// CHECK: Approved multisig signer.
-    #[account(signer)]
-    pub signer2: AccountInfo<'info>,
-    /// CHECK: Approved multisig signer.
-    #[account(signer)]
-    pub signer3: AccountInfo<'info>,
+    // /// CHECK: Approved multisig signer.
+    // #[account(signer)]
+    // pub signer2: AccountInfo<'info>,
+    // /// CHECK: Approved multisig signer.
+    // #[account(signer)]
+    // pub signer3: AccountInfo<'info>,
     /// CHECK: This is the source token account from which funds are withdrawn. Its validity is managed by the token program.
     #[account(mut)]
     pub source: AccountInfo<'info>,
@@ -111,14 +111,14 @@ pub fn distribute_marketing_funds(ctx: Context<DistributeMarketingFunds>,total_a
     Ok(())
 }
 
-/// Marketing wallet state.
-#[account]
-pub struct MarketingWallet {
-    pub threshold: u8,
-    pub signers: Vec<Pubkey>,
-    pub executed: bool,
-    pub total_funds: u64,
-    pub marketing_wallet_1: u64,
-    pub marketing_wallet_2: u64,
-    pub burn_wallet: u64,
-}
+// /// Marketing wallet state.
+// #[account]
+// pub struct MarketingWallet {
+//     pub threshold: u8,
+//     pub signers: Vec<Pubkey>,
+//     pub executed: bool,
+//     pub total_funds: u64,
+//     pub marketing_wallet_1: u64,
+//     pub marketing_wallet_2: u64,
+//     pub burn_wallet: u64,
+// }
