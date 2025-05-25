@@ -1,22 +1,22 @@
 [toolchain]
+package_manager = "yarn"
 
 [features]
 resolution = true
 skip-lint = false
 
-[programs.devnet]
-char-coin = "2Vr5kVWNUJnY7bkSRM1NQ3tGsory7M9rWavDzgWAATdR"
+[programs.localnet]
 gwim_staking_clean = "P62DXPtDL9S68D34mKJ1LNDLRuXSf4Cy63hi5aNVYjR"
 
-[programs.localnet]
+[programs.devnet]
 gwim_staking_clean = "P62DXPtDL9S68D34mKJ1LNDLRuXSf4Cy63hi5aNVYjR"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "Devnet"
-wallet = "~/.config/solana/id.json"
+cluster = "localnet"  
+wallet = "/Users/asad97/.config/solana/id.json"
 
 [scripts]
 test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"

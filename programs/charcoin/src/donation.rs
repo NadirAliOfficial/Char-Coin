@@ -1,6 +1,8 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::clock::Clock;
 
+use crate::{StakingPool, UserStakeInfo};
+
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Debug)]
 pub enum CharityStatus {
     Active,
@@ -36,6 +38,10 @@ pub enum CharityError {
     AlreadyFinalized,
     #[msg("Math error occurred.")]
     MathError,
+   #[msg("User must have staked for at least 15 days to vote.")]
+    VotingNotEligible,
+    #[msg("User has not staked any tokens.")]
+    NoStakedTokens,
 }
 
 /// Registers a new charity for donation voting.
@@ -65,6 +71,15 @@ pub fn register_charity(
 /// ["vote", charity.key(), voter.key()].
 pub fn cast_vote(ctx: Context<CastVote>, vote_weight: u64) -> Result<()> {
     let clock = Clock::get()?.unix_timestamp;
+    let user = &ctx.accounts.user;
+    require!(
+        user.amount > 0,
+        CharityError::NoStakedTokens
+    );
+    require!(
+        clock - user.staked_at >= 15 * 86400,
+        CharityError::VotingNotEligible
+    );
     let charity = &mut ctx.accounts.charity;
     // Ensure voting is active.
     require!(
@@ -165,6 +180,14 @@ pub struct CastVote<'info> {
     #[account(mut)]
     pub voter: Signer<'info>,
     pub system_program: Program<'info, System>,
+
+    #[account(
+        seeds = [b"user", staking_pool.key().as_ref(), voter.key().as_ref()],
+        bump = user.bump
+    )]
+    pub user: Account<'info, UserStakeInfo>,
+
+    pub staking_pool: Account<'info, StakingPool>
 }
 
 #[derive(Accounts)]

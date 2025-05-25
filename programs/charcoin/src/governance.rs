@@ -1,6 +1,8 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::clock::Clock;
 
+use crate::{StakingPool, UserStakeInfo};
+
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Debug)]
 pub enum ProposalStatus {
     Active,
@@ -66,6 +68,15 @@ pub fn vote_on_proposal(
 ) -> Result<()> {
     let current_time = Clock::get()?.unix_timestamp;
     let proposal = &mut ctx.accounts.proposal;
+    let user = &ctx.accounts.user;
+    require!(
+        user.amount > 0,
+        GovernanceError::NoStakedTokens
+    );
+    require!(
+        current_time - user.staked_at >= 15 * 86400,
+        GovernanceError::VotingNotEligible
+    );
     require!(
         current_time < proposal.end_time,
         GovernanceError::VotingPeriodEnded
@@ -320,6 +331,13 @@ pub struct VoteOnProposal<'info> {
     pub proposal: Account<'info, Proposal>,
     #[account(mut)]
     pub voter: Signer<'info>,
+    #[account(
+        seeds = [b"user", staking_pool.key().as_ref(), voter.key().as_ref()],
+        bump = user.bump
+    )]
+    pub user: Account<'info, UserStakeInfo>,
+    pub staking_pool: Account<'info, StakingPool>,
+
 }
 
 #[derive(Accounts)]
@@ -348,6 +366,10 @@ pub enum GovernanceError {
     AlreadyExecuted,
     #[msg("Insufficient approvals for withdrawal execution.")]
     InsufficientApprovals,
+    #[msg("User must have staked for at least 15 days to vote.")]
+    VotingNotEligible,
+    #[msg("User has not staked any tokens.")]
+    NoStakedTokens,
 }
 
 #[event]

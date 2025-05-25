@@ -34,39 +34,39 @@ pub struct ReleaseMonthlyFunds<'info> {
 
 pub fn release_monthly_funds(ctx: Context<ReleaseMonthlyFunds>, total_amount: u64) -> Result<()> {
     // Fixed distribution percentages from the CHAR Coin schema
-    let staking_percent = 15; // 15% to staking rewards
-    let donation_percent = 75; // 75% to donation ecosystem
+    let staking_percent = 150; // 15% to staking rewards
+    let donation_percent = 750; // 75% to donation ecosystem
 
     // Calculate staking amount (15% of total)
     let staking_amount = total_amount
         .checked_mul(staking_percent as u64)
         .unwrap()
-        .checked_div(100)
+        .checked_div(1000)
         .unwrap();
 
     // Calculate donation ecosystem total (75% of total)
     let donation_total = total_amount
         .checked_mul(donation_percent as u64)
         .unwrap()
-        .checked_div(100)
+        .checked_div(1000)
         .unwrap();
 
-    // Split donation into subcategories
+    // Split donation into subcategories (Donation System)
     let monthly_reward_amount = donation_total
         .checked_mul(10)
         .unwrap()
         .checked_div(100)
-        .unwrap(); // 10% of donation (7.5% total)
+        .unwrap(); // 10% of donation 
     let annual_reward_amount = donation_total
         .checked_mul(10)
         .unwrap()
         .checked_div(100)
-        .unwrap(); // 10% of donation (7.5% total)
+        .unwrap(); // 10% of donation 
     let monthly_donation_amount = donation_total
         .checked_mul(80)
         .unwrap()
         .checked_div(100)
-        .unwrap(); // 80% of donation (60% total)
+        .unwrap(); // 80% of donation
 
     // Split monthly donation into immediate and reserved portions
     let monthly_donation_immediate = monthly_donation_amount

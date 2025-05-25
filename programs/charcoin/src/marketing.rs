@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::clock::Clock;
-use anchor_spl::token::{self, Token, Transfer};
+use anchor_spl::{ token::{self, Token,Burn, Transfer}};
 
 #[derive(Accounts)]
 pub struct DistributeMarketingFunds<'info> {
@@ -30,6 +30,9 @@ pub struct DistributeMarketingFunds<'info> {
     /// CHECK: This is the destination token account to which funds are transferred. Its validity is managed
     #[account(mut)]
     pub dest_wallet2: AccountInfo<'info>,
+    /// CHECK: SPL Token mint account.
+   #[account(mut)]
+    pub mint: UncheckedAccount<'info>,
     pub token_program: Program<'info, Token>,
 }
 
@@ -76,7 +79,17 @@ pub fn distribute_marketing_funds(ctx: Context<DistributeMarketingFunds>) -> Res
     );
     token::transfer(transfer_ctx2, amount_wallet2)?;
 
+
     // (Optionally, you might burn the death wallet funds via a separate burn function.)
+    // let burn_ctx = CpiContext::new(
+    //     ctx.accounts.token_program.to_account_info(),
+    //     Burn {
+    //         mint: ctx.accounts.mint.to_account_info(),
+    //         from: ctx.accounts.source.to_account_info(),
+    //         authority: ctx.accounts.signer1.to_account_info(),
+    //     },
+    // );
+    // token::burn(burn_ctx, amount_death)?;
 
     // Reset the wallet's total funds after distribution.
     wallet.total_funds = 0;

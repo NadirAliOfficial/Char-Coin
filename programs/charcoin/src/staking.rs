@@ -34,10 +34,31 @@ pub fn stake_tokens(ctx: Context<Stake>, amount: u64, lockup: u64) -> Result<()>
     Ok(())
 }
 
+pub fn request_unstake_tokens(ctx: Context<UnstakeRequest>) -> Result<()> {
+    let user = &mut ctx.accounts.user;
+
+    require!(user.amount > 0, StakingError::NoStakedTokens);
+    require!(user.unstake_requested_at == 0, StakingError::UnstakeAlreadyRequested);
+
+    user.unstake_requested_at = Clock::get()?.unix_timestamp;
+    msg!(
+        "Unstake requested for {} tokens at {}",
+        user.amount,
+        user.unstake_requested_at
+    );
+    Ok(())
+}
+
 pub fn unstake_tokens(ctx: Context<Unstake>) -> Result<()> {
     let user = &mut ctx.accounts.user;
     let staking_pool = &ctx.accounts.staking_pool;
     let clock = Clock::get()?;
+    
+    require!(user.unstake_requested_at != 0, StakingError::RequestUnstakeFirst);
+
+    if user.unstake_requested_at + 48 * 60 * 60 < clock.unix_timestamp {
+        return Err(StakingError::WaitFor48Hours.into());
+    }
 
     // Check if user has staked tokens
     require!(user.amount > 0, StakingError::NoStakedTokens);
@@ -71,9 +92,10 @@ pub fn unstake_tokens(ctx: Context<Unstake>) -> Result<()> {
     let cpi_program = ctx.accounts.token_program.to_account_info();
     let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
     token::transfer(cpi_ctx, amount_to_return)?;
-    let amount = user.amount;
+    // let amount = user.amount;
     user.amount = 0;
     user.staked_at = 0;
+    user.unstake_requested_at = 0;
     //let staking_pool = &mut ctx.accounts.staking_pool;
     // staking_pool.total_staked -= amount;
 
@@ -81,7 +103,9 @@ pub fn unstake_tokens(ctx: Context<Unstake>) -> Result<()> {
     Ok(())
 }
 
-pub fn get_reward_percentage(lockup: u64) -> u64 {
+
+
+ fn get_reward_percentage(lockup: u64) -> u64 {
     if lockup == 30 {
         return 100;
     }
@@ -100,7 +124,7 @@ pub fn claim_reward(ctx: Context<ClaimReward>) -> Result<()> {
     let user = &mut ctx.accounts.user;
     let clock = Clock::get()?;
     let min_staking_duration = user.lockup; //* 24 * 60 * 60; // days in seconds                                                       //  Check if user has staked tokens
-                                            // require!(user.amount > 0, StakingError::NoStakedTokens);
+    require!(user.amount > 0, StakingError::NoStakedTokens);
 
     // Calculate staking duration
     let staking_duration: i64 = clock
@@ -133,7 +157,6 @@ pub fn claim_reward(ctx: Context<ClaimReward>) -> Result<()> {
     token::transfer(cpi_ctx, reward_amount)?;
     user.staked_at += (min_staking_duration * periods) as i64;
 
-    let staking_pool = &mut ctx.accounts.staking_pool;
     // staking_pool.reward_issued += reward_amount as i64;
     msg!("Claimed reward of {} tokens", reward_amount);
     Ok(())
@@ -240,6 +263,29 @@ pub struct Unstake<'info> {
     pub token_program: Program<'info, Token>,
 }
 
+
+
+#[derive(Accounts)]
+pub struct UnstakeRequest<'info> {
+    #[account(seeds = [b"staking_pool".as_ref(), staking_pool.token_mint.as_ref()],
+        bump = staking_pool.bump,
+    )]
+    pub staking_pool: Account<'info, StakingPool>,
+
+    #[account(
+        mut,
+        seeds = [b"user".as_ref(), staking_pool.key().as_ref(), user_authority.key().as_ref()],
+        bump = user.bump,
+        constraint = user.authority == user_authority.key(),
+        constraint = user.staking_pool == staking_pool.key()
+    )]
+    pub user: Account<'info, UserStakeInfo>,
+
+    #[account(mut)]
+    pub user_authority: Signer<'info>,
+}
+
+
 #[derive(Accounts)]
 pub struct ClaimReward<'info> {
     #[account(
@@ -297,6 +343,7 @@ pub struct UserStakeInfo {
     pub amount: u64,
     pub staked_at: i64,
     pub lockup: u64,
+    pub unstake_requested_at: i64,
     pub bump: u8,
 }
 
@@ -316,4 +363,10 @@ pub enum StakingError {
     RewardAlreadyClaimed,
     #[msg("Already Staked")]
     AlreadyStaked,
+    #[msg("Wait For 48 Hours")]
+    WaitFor48Hours,
+    #[msg("Request Unstake First")]
+    RequestUnstakeFirst,
+    #[msg("Unstake Already Requested")]
+    UnstakeAlreadyRequested,
 }

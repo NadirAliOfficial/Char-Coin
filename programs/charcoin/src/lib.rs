@@ -1,8 +1,9 @@
-
+#![allow(unexpected_cfgs)]
+#[allow(ambiguous_glob_reexports)]
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Burn, MintTo, Token, Transfer};
 
 // Modules
+pub mod burn;
 pub mod donation;
 pub mod governance;
 pub mod marketing;
@@ -11,6 +12,7 @@ pub mod security;
 pub mod staking;
 
 // Re-export public items
+pub use burn::*;
 pub use donation::*;
 pub use governance::*;
 pub use marketing::*;
@@ -18,7 +20,7 @@ pub use rewards::*;
 pub use security::*;
 pub use staking::*;
 
-declare_id!("A9hZQ1EZLM9smeBEEauoykqCue5MsKVesSCVpk93euuM");
+declare_id!("PCQhqxGio3xf8BpqGWwtzNLGVASYCCaPenkn1LEJoNJ");
 
 #[program]
 pub mod charcoin {
@@ -51,21 +53,35 @@ pub mod charcoin {
         staking_pool.bump = ctx.bumps.staking_pool;
         Ok(())
     }
-
+    
+    // Staking
     /// Stake tokens with a specified lockup duration.
     pub fn stake_tokens_handler(ctx: Context<Stake>, amount: u64, lockup: u64) -> Result<()> {
         staking::stake_tokens(ctx, amount, lockup)
     }
 
-    /// Unstake tokens after the lockup period has expired.
+    /// Unstake tokens after 48h delay and lockup period has expired. unstake before lockup period will result in penalty
     pub fn unstake_tokens_handler(ctx: Context<Unstake>) -> Result<()> {
         staking::unstake_tokens(ctx)
+    }
+    
+    /// request Unstake tokens.
+    pub fn request_unstake_handler(ctx: Context<UnstakeRequest>) -> Result<()> {
+        staking::request_unstake_tokens(ctx)
     }
 
     pub fn claim_reward_handler(ctx: Context<ClaimReward>) -> Result<()> {
         staking::claim_reward(ctx)
     }
 
+
+    // Burning
+    pub fn execute_buyback_handler(ctx: Context<ExecuteBuyback>,
+        fee_amount: u64,
+        conversion_rate: u64
+    ) -> Result<()> {
+        burn::execute_buyback(ctx,fee_amount,conversion_rate)
+    }
     // Governance
     // Governance functions
     pub fn submit_proposal_handler(
@@ -228,64 +244,9 @@ pub struct Initialize<'info> {
     pub system_program: Program<'info, System>,
 }
 
-/// Accounts for minting tokens.
-#[derive(Accounts)]
-pub struct MintTokens<'info> {
-    /// CHECK: SPL Token mint account.
-    #[account(mut)]
-    pub mint: UncheckedAccount<'info>,
-    /// CHECK: Destination token account.
-    #[account(mut)]
-    pub destination: UncheckedAccount<'info>,
-    /// CHECK: PDA mint authority.
-    pub mint_authority: UncheckedAccount<'info>,
-    #[account(address = config.config.admin)]
-    pub admin: Signer<'info>,
-    pub config: Account<'info, ConfigAccount>,
-    pub token_program: Program<'info, Token>,
-}
 
-/// Accounts for burning tokens.
-#[derive(Accounts)]
-pub struct BurnTokens<'info> {
-    /// CHECK: SPL Token mint account.
-    #[account(mut)]
-    pub mint: UncheckedAccount<'info>,
-    /// CHECK: Token account from which tokens will be burned.
-    #[account(mut)]
-    pub token_account: UncheckedAccount<'info>,
-    /// CHECK: Owner of the token account.
-    pub owner: UncheckedAccount<'info>,
-    pub token_program: Program<'info, Token>,
-}
 
-/// Accounts for transferring tokens.
-#[derive(Accounts)]
-pub struct TransferTokens<'info> {
-    /// CHECK: Source token account
-    #[account(mut)]
-    pub from: UncheckedAccount<'info>,
-    /// CHECK: Destination token account
-    #[account(mut)]
-    pub destination: UncheckedAccount<'info>,
-    /// CHECK: Monthly donation wallet
-    #[account(mut)]
-    pub monthly_donation_wallet: UncheckedAccount<'info>,
-    /// CHECK: Staking rewards wallet
-    #[account(mut)]
-    pub staking_rewards_wallet: UncheckedAccount<'info>,
-    /// CHECK: Token account owner
-    pub owner: UncheckedAccount<'info>,
-    // Global configuration account
-    pub config: Account<'info, ConfigAccount>,
-    pub token_program: Program<'info, Token>,
-}
 
-/// Event to log supply updates.
-#[event]
-pub struct SupplyUpdated {
-    pub new_supply: u64,
-}
 
 /// Custom error definitions.
 #[error_code]
