@@ -48,9 +48,9 @@ pub struct MarketingFundDistributionEvent {
 /// - Marketing Wallet 1: 42.5%
 /// - Marketing Wallet 2: 42.5%
 /// - Death Wallet (Burn): 15%
-pub fn distribute_marketing_funds(ctx: Context<DistributeMarketingFunds>) -> Result<()> {
-    let wallet = &mut ctx.accounts.marketing_wallet;
-    let total = wallet.total_funds;
+pub fn distribute_marketing_funds(ctx: Context<DistributeMarketingFunds>,total_amount: u64) -> Result<()> {
+    // let wallet = &mut ctx.accounts.marketing_wallet;
+    let total = total_amount;
     // Calculate distribution amounts.
     let amount_wallet1 = (total * 425) / 1000; // 42.5%
     let amount_wallet2 = (total * 425) / 1000; // 42.5%
@@ -81,18 +81,18 @@ pub fn distribute_marketing_funds(ctx: Context<DistributeMarketingFunds>) -> Res
 
 
     // (Optionally, you might burn the death wallet funds via a separate burn function.)
-    // let burn_ctx = CpiContext::new(
-    //     ctx.accounts.token_program.to_account_info(),
-    //     Burn {
-    //         mint: ctx.accounts.mint.to_account_info(),
-    //         from: ctx.accounts.source.to_account_info(),
-    //         authority: ctx.accounts.signer1.to_account_info(),
-    //     },
-    // );
-    // token::burn(burn_ctx, amount_death)?;
+    let burn_ctx = CpiContext::new(
+        ctx.accounts.token_program.to_account_info(),
+        Burn {
+            mint: ctx.accounts.mint.to_account_info(),
+            from: ctx.accounts.source.to_account_info(),
+            authority: ctx.accounts.signer1.to_account_info(),
+        },
+    );
+    token::burn(burn_ctx, amount_death)?;
 
     // Reset the wallet's total funds after distribution.
-    wallet.total_funds = 0;
+    // wallet.total_funds = 0;
 
     // Get current timestamp.
     let clock = Clock::get()?;

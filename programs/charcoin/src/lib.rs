@@ -3,7 +3,6 @@
 use anchor_lang::prelude::*;
 
 // Modules
-pub mod burn;
 pub mod donation;
 pub mod governance;
 pub mod marketing;
@@ -12,7 +11,6 @@ pub mod security;
 pub mod staking;
 
 // Re-export public items
-pub use burn::*;
 pub use donation::*;
 pub use governance::*;
 pub use marketing::*;
@@ -75,13 +73,6 @@ pub mod charcoin {
     }
 
 
-    // Burning
-    pub fn execute_buyback_handler(ctx: Context<ExecuteBuyback>,
-        fee_amount: u64,
-        conversion_rate: u64
-    ) -> Result<()> {
-        burn::execute_buyback(ctx,fee_amount,conversion_rate)
-    }
     // Governance
     // Governance functions
     pub fn submit_proposal_handler(
@@ -191,19 +182,13 @@ pub mod charcoin {
         rewards::release_monthly_funds(ctx, total_amount)
     }
 
-    /// Releases annual funds from the treasury to the annual charity fund.
-    pub fn release_annual_funds_handler(
-        ctx: Context<ReleaseAnnualFunds>,
-        annual_amount: u64,
-    ) -> Result<()> {
-        rewards::release_annual_funds(ctx, annual_amount)
-    }
+   
 
     // Marketing
     pub fn distribute_marketing_funds_handler(
-        ctx: Context<DistributeMarketingFunds>,
+        ctx: Context<DistributeMarketingFunds>,total_amount: u64
     ) -> Result<()> {
-        marketing::distribute_marketing_funds(ctx)
+        marketing::distribute_marketing_funds(ctx,total_amount)
     }
 
 }
