@@ -55,10 +55,9 @@ pub fn unstake_tokens(ctx: Context<Unstake>) -> Result<()> {
     let clock = Clock::get()?;
     
     require!(user.unstake_requested_at != 0, StakingError::RequestUnstakeFirst);
-
-    if user.unstake_requested_at + 48 * 60 * 60 < clock.unix_timestamp {
-        return Err(StakingError::WaitFor48Hours.into());
-    }
+   
+    require!(clock.unix_timestamp >= user.unstake_requested_at + 172800,StakingError::WaitFor48Hours); // 48 hours in seconds
+  
 
     // Check if user has staked tokens
     require!(user.amount > 0, StakingError::NoStakedTokens);
@@ -103,9 +102,7 @@ pub fn unstake_tokens(ctx: Context<Unstake>) -> Result<()> {
     Ok(())
 }
 
-
-
- fn get_reward_percentage(lockup: u64) -> u64 {
+fn get_reward_percentage(lockup: u64) -> u64 {
     if lockup == 30 {
         return 100;
     }
@@ -162,8 +159,7 @@ pub fn claim_reward(ctx: Context<ClaimReward>) -> Result<()> {
     Ok(())
 }
 
-#[derive(Accounts)]
-pub struct GetTimestamp {}
+
 
 #[derive(Accounts)]
 pub struct StakeInitialize<'info> {
@@ -183,7 +179,6 @@ pub struct StakeInitialize<'info> {
     pub token_mint: Account<'info, Mint>,
     pub pool_token_account: Account<'info, TokenAccount>,
     pub system_program: Program<'info, System>,
-    pub rent: Sysvar<'info, Rent>,
 }
 
 #[derive(Accounts)]
@@ -196,7 +191,7 @@ pub struct Stake<'info> {
     #[account(
         init_if_needed,
         payer = user_authority,
-        space = 8 + UserStakeInfo::LEN,
+        space = 8 + std::mem::size_of::<UserStakeInfo>(),
         seeds = [b"user".as_ref(), staking_pool.key().as_ref(), user_authority.key().as_ref()],
         bump
     )]
@@ -254,11 +249,7 @@ pub struct Unstake<'info> {
     )]
     pub pool_token_account: Account<'info, TokenAccount>,
 
-    #[account(
-        mut,
-        constraint = reward_token_account.mint == staking_pool.token_mint
-    )]
-    pub reward_token_account: Account<'info, TokenAccount>,
+ 
 
     pub token_program: Program<'info, Token>,
 }
@@ -347,9 +338,7 @@ pub struct UserStakeInfo {
     pub bump: u8,
 }
 
-impl UserStakeInfo {
-    pub const LEN: usize = 32 + 32 + 8 + 8 + 8 + 1;
-}
+
 
 #[error_code]
 pub enum StakingError {
@@ -370,3 +359,4 @@ pub enum StakingError {
     #[msg("Unstake Already Requested")]
     UnstakeAlreadyRequested,
 }
+
