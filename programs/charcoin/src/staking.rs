@@ -152,7 +152,7 @@ pub fn claim_reward(ctx: Context<ClaimReward>) -> Result<()> {
     let cpi_program = ctx.accounts.token_program.to_account_info();
     let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
     token::transfer(cpi_ctx, reward_amount)?;
-    user.staked_at += (min_staking_duration * periods) as i64;
+    // user.staked_at += (min_staking_duration * periods) as i64;
 
     // staking_pool.reward_issued += reward_amount as i64;
     msg!("Claimed reward of {} tokens", reward_amount);

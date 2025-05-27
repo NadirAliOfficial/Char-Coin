@@ -1,12 +1,12 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::clock::Clock;
-use anchor_spl::{ token::{self, Token,Burn, Transfer}};
+use anchor_spl::token::{self, Burn, Mint, Token, TokenAccount, Transfer};
 
 #[derive(Accounts)]
 pub struct DistributeMarketingFunds<'info> {
     /// The marketing wallet that tracks allocated funds.
-    // #[account(mut)]
-    // pub marketing_wallet: Account<'info, MarketingWallet>,
+    #[account(mut)]
+    pub marketing_wallet: Account<'info, MarketingWallet>,
     /// The multisig configuration account (for approval, if needed).
     // #[account(mut)]
     // pub multisig: Account<'info, crate::security::Multisig>,
@@ -22,17 +22,21 @@ pub struct DistributeMarketingFunds<'info> {
     /// CHECK: This is the source token account from which funds are withdrawn. Its validity is managed by the token program.
     #[account(mut)]
     pub source: AccountInfo<'info>,
-    /// Destination account for Marketing Wallet 1 funds.
-    /// CHECK: This is the destination token account to which funds are transferred. Its validity is managed by th
-    #[account(mut)]
-    pub dest_wallet1: AccountInfo<'info>,
-    /// Destination account for Marketing Wallet 2 funds.
-    /// CHECK: This is the destination token account to which funds are transferred. Its validity is managed
-    #[account(mut)]
-    pub dest_wallet2: AccountInfo<'info>,
-    /// CHECK: SPL Token mint account.
+    /// Destination token account for Marketing Wallet 1 funds.
+    #[account(
+        mut,
+        constraint = dest_wallet1_ata.owner == marketing_wallet.marketing_wallet_1,// Ensure the owner matches the marketing wallet
+
+    )]
+    pub dest_wallet1_ata: Account<'info,TokenAccount>,
+    /// Destination token  account for Marketing Wallet 2 funds.
+    #[account(
+        mut,
+        constraint = dest_wallet2_ata.owner == marketing_wallet.marketing_wallet_2,// Ensure the owner matches the marketing wallet
+    )]
+    pub dest_wallet2_ata: Account<'info,TokenAccount>,
    #[account(mut)]
-    pub mint: UncheckedAccount<'info>,
+    pub mint: Account<'info, Mint>,
     pub token_program: Program<'info, Token>,
 }
 
@@ -62,7 +66,7 @@ pub fn distribute_marketing_funds(ctx: Context<DistributeMarketingFunds>,total_a
         ctx.accounts.token_program.to_account_info(),
         Transfer {
             from: ctx.accounts.source.to_account_info(),
-            to: ctx.accounts.dest_wallet1.to_account_info(),
+            to: ctx.accounts.dest_wallet1_ata.to_account_info(),
             // For demonstration, use signer1; in production, use a multisig PDA.
             authority: ctx.accounts.signer1.to_account_info(),
         },
@@ -73,7 +77,7 @@ pub fn distribute_marketing_funds(ctx: Context<DistributeMarketingFunds>,total_a
         ctx.accounts.token_program.to_account_info(),
         Transfer {
             from: ctx.accounts.source.to_account_info(),
-            to: ctx.accounts.dest_wallet2.to_account_info(),
+            to: ctx.accounts.dest_wallet2_ata.to_account_info(),
             authority: ctx.accounts.signer1.to_account_info(),
         },
     );
@@ -112,13 +116,8 @@ pub fn distribute_marketing_funds(ctx: Context<DistributeMarketingFunds>,total_a
 }
 
 // /// Marketing wallet state.
-// #[account]
-// pub struct MarketingWallet {
-//     pub threshold: u8,
-//     pub signers: Vec<Pubkey>,
-//     pub executed: bool,
-//     pub total_funds: u64,
-//     pub marketing_wallet_1: u64,
-//     pub marketing_wallet_2: u64,
-//     pub burn_wallet: u64,
-// }
+#[account]
+pub struct MarketingWallet {
+    pub marketing_wallet_1: Pubkey,
+    pub marketing_wallet_2: Pubkey,
+}
