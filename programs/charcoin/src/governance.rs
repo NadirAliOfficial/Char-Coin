@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::clock::Clock;
 
-use crate::{StakingPool, UserStakeInfo};
+use crate::{ConfigAccount, StakingPool, UserStakeInfo};
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Debug)]
 pub enum ProposalStatus {
@@ -276,6 +276,8 @@ pub fn execute_withdrawal(ctx: Context<ExecuteWithdrawal>) -> Result<()> {
 
 #[derive(Accounts)]
 pub struct InitializeTreasury<'info> {
+         #[account(mut)]
+    pub config_account: Account<'info, ConfigAccount>,
     #[account(init, payer = signer, space = 8 + (32 * 10) + 1 + 8)]
     pub treasury: Account<'info, Treasury>,
     #[account(mut)]
@@ -285,6 +287,8 @@ pub struct InitializeTreasury<'info> {
 
 #[derive(Accounts)]
 pub struct CreateWithdrawal<'info> {
+         #[account(mut)]
+    pub config_account: Account<'info, ConfigAccount>,
     #[account(mut)]
     pub treasury: Account<'info, Treasury>,
     #[account(init, payer = signer, space = 8 + 8 + 32 + (32 * 10) + 1)]
@@ -296,6 +300,8 @@ pub struct CreateWithdrawal<'info> {
 
 #[derive(Accounts)]
 pub struct ApproveWithdrawal<'info> {
+         #[account(mut)]
+    pub config_account: Account<'info, ConfigAccount>,
     #[account(mut)]
     pub treasury: Account<'info, Treasury>,
     #[account(mut)]
@@ -307,6 +313,8 @@ pub struct ApproveWithdrawal<'info> {
 
 #[derive(Accounts)]
 pub struct ExecuteWithdrawal<'info> {
+         #[account(mut)]
+    pub config_account: Account<'info, ConfigAccount>,
     #[account(mut)]
     pub treasury: Account<'info, Treasury>,
     #[account(mut)]
@@ -318,6 +326,8 @@ pub struct ExecuteWithdrawal<'info> {
 
 #[derive(Accounts)]
 pub struct SubmitProposal<'info> {
+         #[account(mut)]
+    pub config_account: Account<'info, ConfigAccount>,
     #[account(init, payer = creator, space = 8 + 32 + 8 + 256 + 8 + 8 + 1 + 8)]
     pub proposal: Account<'info, Proposal>,
     #[account(mut)]
@@ -327,6 +337,8 @@ pub struct SubmitProposal<'info> {
 
 #[derive(Accounts)]
 pub struct VoteOnProposal<'info> {
+         #[account(mut)]
+    pub config_account: Account<'info, ConfigAccount>,
     #[account(mut)]
     pub proposal: Account<'info, Proposal>,
     #[account(mut)]
@@ -342,6 +354,8 @@ pub struct VoteOnProposal<'info> {
 
 #[derive(Accounts)]
 pub struct FinalizeProposal<'info> {
+         #[account(mut)]
+    pub config_account: Account<'info, ConfigAccount>,
     #[account(mut)]
     pub proposal: Account<'info, Proposal>,
     #[account(mut)]

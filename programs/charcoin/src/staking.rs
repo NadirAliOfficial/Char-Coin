@@ -2,6 +2,8 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::clock::Clock;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
+use crate::ConfigAccount;
+
 pub fn stake_tokens(ctx: Context<Stake>, amount: u64, lockup: u64) -> Result<()> {
     let staking_pool = &mut ctx.accounts.staking_pool;
     let user = &mut ctx.accounts.user;
@@ -183,6 +185,8 @@ pub struct StakeInitialize<'info> {
 
 #[derive(Accounts)]
 pub struct Stake<'info> {
+        #[account(mut)]
+    pub config_account: Account<'info, ConfigAccount>,
     #[account(seeds = [b"staking_pool".as_ref(), staking_pool.token_mint.as_ref()],
         bump = staking_pool.bump,
     )]
@@ -219,6 +223,8 @@ pub struct Stake<'info> {
 
 #[derive(Accounts)]
 pub struct Unstake<'info> {
+            #[account(mut)]
+    pub config_account: Account<'info, ConfigAccount>,
     #[account(seeds = [b"staking_pool".as_ref(), staking_pool.token_mint.as_ref()],
         bump = staking_pool.bump,
     )]
@@ -258,6 +264,8 @@ pub struct Unstake<'info> {
 
 #[derive(Accounts)]
 pub struct UnstakeRequest<'info> {
+            #[account(mut)]
+    pub config_account: Account<'info, ConfigAccount>,
     #[account(seeds = [b"staking_pool".as_ref(), staking_pool.token_mint.as_ref()],
         bump = staking_pool.bump,
     )]
@@ -279,6 +287,8 @@ pub struct UnstakeRequest<'info> {
 
 #[derive(Accounts)]
 pub struct ClaimReward<'info> {
+            #[account(mut)]
+    pub config_account: Account<'info, ConfigAccount>,
     #[account(
         seeds = [b"staking_pool".as_ref(), staking_pool.token_mint.as_ref()],
         bump = staking_pool.bump,

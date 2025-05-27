@@ -43,13 +43,6 @@ pub mod charcoin {
         Ok(())
     }
 
-    pub fn initialize_marketing_wallet_handler(
-        ctx: Context<InitializeMarketingWallet>,
-        marketing_wallet_1: Pubkey,
-        marketing_wallet_2: Pubkey,
-    ) -> Result<()> {
-        marketing::initialize_marketing_wallet(ctx, marketing_wallet_1, marketing_wallet_2)
-    }
     pub fn staking_initialize(ctx: Context<StakeInitialize>) -> Result<()> {
         let staking_pool = &mut ctx.accounts.staking_pool;
         staking_pool.authority = ctx.accounts.authority.key();
@@ -58,27 +51,45 @@ pub mod charcoin {
         staking_pool.bump = ctx.bumps.staking_pool;
         Ok(())
     }
-    
+
     // Staking
     /// Stake tokens with a specified lockup duration.
     pub fn stake_tokens_handler(ctx: Context<Stake>, amount: u64, lockup: u64) -> Result<()> {
+        require!(
+            ctx.accounts.config_account.config.halted == false,
+            ErrorCode::ProgramIsHalted
+        );
         staking::stake_tokens(ctx, amount, lockup)
     }
 
     /// Unstake tokens after 48h delay and lockup period has expired. unstake before lockup period will result in penalty
     pub fn unstake_tokens_handler(ctx: Context<Unstake>) -> Result<()> {
+        require!(
+            ctx.accounts.config_account.config.halted == false,
+            ErrorCode::ProgramIsHalted
+        );
+
         staking::unstake_tokens(ctx)
     }
-    
+
     /// request Unstake tokens.
     pub fn request_unstake_handler(ctx: Context<UnstakeRequest>) -> Result<()> {
+        require!(
+            ctx.accounts.config_account.config.halted == false,
+            ErrorCode::ProgramIsHalted
+        );
+
         staking::request_unstake_tokens(ctx)
     }
 
     pub fn claim_reward_handler(ctx: Context<ClaimReward>) -> Result<()> {
+        require!(
+            ctx.accounts.config_account.config.halted == false,
+            ErrorCode::ProgramIsHalted
+        );
+
         staking::claim_reward(ctx)
     }
-
 
     // Governance
     // Governance functions
@@ -88,6 +99,10 @@ pub mod charcoin {
         description: String,
         duration: i64,
     ) -> Result<()> {
+          require!(
+            ctx.accounts.config_account.config.halted == false,
+            ErrorCode::ProgramIsHalted
+        );
         governance::submit_proposal(ctx, title, description, duration)
     }
 
@@ -97,10 +112,18 @@ pub mod charcoin {
         vote_choice: bool,
         amount_staked: u64,
     ) -> Result<()> {
+          require!(
+            ctx.accounts.config_account.config.halted == false,
+            ErrorCode::ProgramIsHalted
+        );
         governance::vote_on_proposal(ctx, proposal_id, vote_choice, amount_staked)
     }
 
     pub fn finalize_proposal_handler(ctx: Context<FinalizeProposal>) -> Result<()> {
+          require!(
+            ctx.accounts.config_account.config.halted == false,
+            ErrorCode::ProgramIsHalted
+        );
         governance::finalize_proposal(ctx)
     }
 
@@ -117,14 +140,26 @@ pub mod charcoin {
         amount: u64,
         recipient: Pubkey,
     ) -> Result<()> {
+          require!(
+            ctx.accounts.config_account.config.halted == false,
+            ErrorCode::ProgramIsHalted
+        );
         governance::create_withdrawal(ctx, amount, recipient)
     }
 
     pub fn approve_withdrawal_handler(ctx: Context<ApproveWithdrawal>) -> Result<()> {
+          require!(
+            ctx.accounts.config_account.config.halted == false,
+            ErrorCode::ProgramIsHalted
+        );
         governance::approve_withdrawal(ctx)
     }
 
     pub fn execute_withdrawal_handler(ctx: Context<ExecuteWithdrawal>) -> Result<()> {
+          require!(
+            ctx.accounts.config_account.config.halted == false,
+            ErrorCode::ProgramIsHalted
+        );
         governance::execute_withdrawal(ctx)
     }
 
@@ -141,19 +176,11 @@ pub mod charcoin {
         security::verify_multisig(&ctx)
     }
 
-    pub fn initialize_emergency_state_handler(
+    pub fn change_emergency_state_handler(
         ctx: Context<InitializeEmergencyState>,
         state: bool,
     ) -> Result<()> {
-        security::initialize_emergency_state(ctx, state)
-    }
-
-    pub fn emergency_halt_handler(ctx: Context<EmergencyHalt>) -> Result<()> {
-        security::emergency_halt(ctx)
-    }
-
-    pub fn emergency_unhalt_handler(ctx: Context<EmergencyUnhalt>) -> Result<()> {
-        security::emergency_unhalt(ctx)
+        security::change_emergency_state(ctx, state)
     }
 
     // Donation
@@ -172,11 +199,19 @@ pub mod charcoin {
 
     /// Casts or updates a vote for a charity.
     pub fn cast_vote_handler(ctx: Context<CastVote>, vote_weight: u64) -> Result<()> {
+          require!(
+            ctx.accounts.config_account.config.halted == false,
+            ErrorCode::ProgramIsHalted
+        );
         donation::cast_vote(ctx, vote_weight)
     }
 
     /// Finalizes charity voting after the voting period ends.
     pub fn finalize_charity_vote_handler(ctx: Context<FinalizeCharityVote>) -> Result<()> {
+          require!(
+            ctx.accounts.config_account.config.halted == false,
+            ErrorCode::ProgramIsHalted
+        );
         donation::finalize_charity_vote(ctx)
     }
 
@@ -186,24 +221,36 @@ pub mod charcoin {
         ctx: Context<ReleaseMonthlyFunds>,
         total_amount: u64,
     ) -> Result<()> {
+          require!(
+            ctx.accounts.config_account.config.halted == false,
+            ErrorCode::ProgramIsHalted
+        );
         rewards::release_funds(ctx, total_amount)
     }
 
-   
-
     // Marketing
     pub fn distribute_marketing_funds_handler(
-        ctx: Context<DistributeMarketingFunds>,total_amount: u64
+        ctx: Context<DistributeMarketingFunds>,
+        total_amount: u64,
     ) -> Result<()> {
-        marketing::distribute_marketing_funds(ctx,total_amount)
+          require!(
+            ctx.accounts.config_account.config.halted == false,
+            ErrorCode::ProgramIsHalted
+        );
+        marketing::distribute_marketing_funds(ctx, total_amount)
     }
-
+    pub fn initialize_marketing_wallet_handler(
+        ctx: Context<InitializeMarketingWallet>,
+        marketing_wallet_1: Pubkey,
+        marketing_wallet_2: Pubkey,
+    ) -> Result<()> {
+        marketing::initialize_marketing_wallet(ctx, marketing_wallet_1, marketing_wallet_2)
+    }
 }
 
 /// Stores global configuration for CHAR Coin.
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
 pub struct Config {
-
     // The fields below are used in your code, so we add them to avoid errors.
     pub admin: Pubkey,
 
@@ -211,9 +258,11 @@ pub struct Config {
     pub annual_reward_wallet: Pubkey,
     pub monthly_donation_wallet: Pubkey,
     pub annual_charity_wallet: Pubkey,
-    pub chai_funds:Pubkey,
+    pub chai_funds: Pubkey,
     pub marketing_wallet_1: Pubkey,
     pub marketing_wallet_2: Pubkey,
+    /// emergency state that indicates if the contract is halted.
+    pub halted: bool,
 }
 
 /// Account that holds the global configuration.
@@ -235,10 +284,6 @@ pub struct Initialize<'info> {
     pub system_program: Program<'info, System>,
 }
 
-
-
-
-
 /// Custom error definitions.
 #[error_code]
 pub enum ErrorCode {
@@ -248,4 +293,6 @@ pub enum ErrorCode {
     Unauthorized,
     #[msg("Invalid wallet configuration")]
     InvalidConfiguration,
+    #[msg("program is halted")]
+    ProgramIsHalted,
 }

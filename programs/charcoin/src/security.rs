@@ -1,5 +1,7 @@
 use anchor_lang::prelude::*;
 
+use crate::ConfigAccount;
+
 /// Context for initializing a multisig wallet.
 #[derive(Accounts)]
 pub struct InitializeMultisig<'info> {
@@ -72,12 +74,7 @@ pub fn verify_multisig(ctx: &Context<ExecuteMultisig>) -> Result<()> {
     Ok(())
 }
 
-/// Account to track tokens burned.
-#[account]
-pub struct BurnTracker {
-    /// The total number of tokens burned.
-    pub total_burned: u64,
-}
+
 
 /// Multisig account that holds the configuration for multisig approvals.
 #[account]
@@ -116,70 +113,30 @@ pub enum MultisigError {
     TooManyOwners,
 }
 
-/// ---------------------------------------------------------------------------
-/// Emergency Halt Implementation
 
-/// Global emergency state that indicates if the contract is halted.
-#[account]
-pub struct EmergencyState {
-    pub halted: bool,
-}
 
 #[derive(Accounts)]
 pub struct InitializeEmergencyState<'info> {
-    #[account(
-        init,
-        payer = payer,
-        space = 8 + 1
-    )]
-    pub emergency_state: Account<'info, EmergencyState>,
     #[account(mut)]
+    pub config_account: Account<'info, ConfigAccount>,
+
+    #[account(
+        mut,
+        constraint = config_account.config.admin == payer.key() // Ensure the signer is the admin
+    )]    
     pub payer: Signer<'info>,
     pub system_program: Program<'info, System>,
 }
 
 /// Initializes a multisig wallet.
-pub fn initialize_emergency_state(
+pub fn change_emergency_state(
     ctx: Context<InitializeEmergencyState>,
     state: bool,
 ) -> Result<()> {
-    let emergency_state = &mut ctx.accounts.emergency_state;
+    let emergency_state = &mut ctx.accounts.config_account.config;
     emergency_state.halted = state;
     Ok(())
 }
 
-/// Context for activating an emergency halt.
-#[derive(Accounts)]
-pub struct EmergencyHalt<'info> {
-    #[account(mut)]
-    pub emergency_state: Account<'info, EmergencyState>,
-    /// CHECK: This account is the authorized authority and is expected to be a valid signer. No further checks are needed.
-    #[account(signer)]
-    pub authority: AccountInfo<'info>,
-}
 
-/// Activates an emergency halt by setting the global emergency state to halted.
-pub fn emergency_halt(ctx: Context<EmergencyHalt>) -> Result<()> {
-    let emergency_state = &mut ctx.accounts.emergency_state;
-    emergency_state.halted = true;
-    msg!("Emergency halt activated.");
-    Ok(())
-}
 
-/// Context for deactivating an emergency halt.
-#[derive(Accounts)]
-pub struct EmergencyUnhalt<'info> {
-    #[account(mut)]
-    pub emergency_state: Account<'info, EmergencyState>,
-    /// CHECK: This account is the authorized authority and is expected to be a valid signer. No further checks are needed.
-    #[account(signer)]
-    pub authority: AccountInfo<'info>,
-}
-
-/// Deactivates the emergency halt by clearing the halted flag.
-pub fn emergency_unhalt(ctx: Context<EmergencyUnhalt>) -> Result<()> {
-    let emergency_state = &mut ctx.accounts.emergency_state;
-    emergency_state.halted = false;
-    msg!("Emergency halt deactivated.");
-    Ok(())
-}

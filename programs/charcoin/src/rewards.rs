@@ -1,10 +1,14 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token, Transfer};
 
+use crate::ConfigAccount;
+
 
 
 #[derive(Accounts)]
 pub struct ReleaseMonthlyFunds<'info> {
+         #[account(mut)]
+    pub config_account: Account<'info, ConfigAccount>,
     /// CHECK: Treasury token account holding funds to be distributed.
     #[account(mut)]
     pub treasury: UncheckedAccount<'info>,
