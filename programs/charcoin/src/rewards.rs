@@ -1,11 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token, Transfer};
 
-#[error_code]
-pub enum FundReleaseError {
-    #[msg("Invalid distribution percentages, must sum to 100.")]
-    InvalidPercentage,
-}
+
 
 #[derive(Accounts)]
 pub struct ReleaseMonthlyFunds<'info> {

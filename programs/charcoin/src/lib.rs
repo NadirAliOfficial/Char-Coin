@@ -43,6 +43,13 @@ pub mod charcoin {
         Ok(())
     }
 
+    pub fn initialize_marketing_wallet_handler(
+        ctx: Context<InitializeMarketingWallet>,
+        marketing_wallet_1: Pubkey,
+        marketing_wallet_2: Pubkey,
+    ) -> Result<()> {
+        marketing::initialize_marketing_wallet(ctx, marketing_wallet_1, marketing_wallet_2)
+    }
     pub fn staking_initialize(ctx: Context<StakeInitialize>) -> Result<()> {
         let staking_pool = &mut ctx.accounts.staking_pool;
         staking_pool.authority = ctx.accounts.authority.key();
@@ -196,18 +203,17 @@ pub mod charcoin {
 /// Stores global configuration for CHAR Coin.
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
 pub struct Config {
-    pub token_supply: u64,
-    pub fee_percentage: u8,
-    pub buyback_percentage: u8,
-    pub donation_percentage: u8,
-    pub staking_percentage: u8,
+
     // The fields below are used in your code, so we add them to avoid errors.
     pub admin: Pubkey,
-    pub mint_authority_bump: u8,
+
     pub monthly_reward_wallet: Pubkey,
     pub annual_reward_wallet: Pubkey,
     pub monthly_donation_wallet: Pubkey,
     pub annual_charity_wallet: Pubkey,
+
+    pub marketing_wallet_1: Pubkey,
+    pub marketing_wallet_2: Pubkey,
 }
 
 /// Account that holds the global configuration.
@@ -219,7 +225,7 @@ pub struct ConfigAccount {
 /// Accounts for initialization.
 #[derive(Accounts)]
 pub struct Initialize<'info> {
-    #[account(init, payer = user, space = 8 + 256)]
+    #[account(init, payer = user, space = 8 + std::mem::size_of::<ConfigAccount>())]
     pub config: Account<'info, ConfigAccount>,
     /// CHECK: SPL Token mint account; its data is managed by the token program.
     #[account(mut)]
