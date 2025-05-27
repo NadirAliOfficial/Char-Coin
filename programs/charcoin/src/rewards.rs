@@ -32,7 +32,7 @@ pub struct ReleaseMonthlyFunds<'info> {
     pub token_program: Program<'info, Token>,
 }
 
-pub fn release_monthly_funds(ctx: Context<ReleaseMonthlyFunds>, total_amount: u64) -> Result<()> {
+pub fn release_funds(ctx: Context<ReleaseMonthlyFunds>, total_amount: u64) -> Result<()> {
     // Fixed distribution percentages from the CHAR Coin schema
     let staking_percent = 150; // 15% to staking rewards
     let donation_percent = 750; // 75% to donation ecosystem

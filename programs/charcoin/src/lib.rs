@@ -181,12 +181,12 @@ pub mod charcoin {
     }
 
     //  Rewards
-    /// Releases monthly funds from the treasury to staking rewards and charity fund.
-    pub fn release_monthly_funds_handler(
+    /// Releases funds from the treasury to staking rewards and charity fund.
+    pub fn release_funds_handler(
         ctx: Context<ReleaseMonthlyFunds>,
         total_amount: u64,
     ) -> Result<()> {
-        rewards::release_monthly_funds(ctx, total_amount)
+        rewards::release_funds(ctx, total_amount)
     }
 
    
@@ -211,7 +211,7 @@ pub struct Config {
     pub annual_reward_wallet: Pubkey,
     pub monthly_donation_wallet: Pubkey,
     pub annual_charity_wallet: Pubkey,
-
+    pub chai_funds:Pubkey,
     pub marketing_wallet_1: Pubkey,
     pub marketing_wallet_2: Pubkey,
 }
