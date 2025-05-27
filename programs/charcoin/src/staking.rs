@@ -119,9 +119,9 @@ fn get_reward_percentage(lockup: u64) -> u64 {
 
 pub fn claim_reward(ctx: Context<ClaimReward>) -> Result<()> {
     let user = &mut ctx.accounts.user;
-    let clock = Clock::get()?;
-    let min_staking_duration = user.lockup; //* 24 * 60 * 60; // days in seconds                                                       //  Check if user has staked tokens
     require!(user.amount > 0, StakingError::NoStakedTokens);
+    let clock = Clock::get()?;
+    let min_staking_duration = user.lockup * 24 * 60 * 60; // days in seconds
 
     // Calculate staking duration
     let staking_duration: i64 = clock
