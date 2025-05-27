@@ -35,9 +35,33 @@ pub mod charcoin {
             ErrorCode::InvalidConfiguration
         );
         require!(
-            config_account.config.annual_charity_wallet != Pubkey::default(),
+            config_account.config.annual_reward_wallet != Pubkey::default(),
             ErrorCode::InvalidConfiguration
         );
+
+        require!(
+            config_account.config.monthly_donation_wallet != Pubkey::default(),
+            ErrorCode::InvalidConfiguration
+        );
+        require!(
+            config_account.config.annual_donation_wallet != Pubkey::default(),
+            ErrorCode::InvalidConfiguration
+        );
+        require!(
+            config_account.config.chai_funds != Pubkey::default(),
+            ErrorCode::InvalidConfiguration
+        );
+
+        require!(
+            config_account.config.marketing_wallet_1 != Pubkey::default(),
+            ErrorCode::InvalidConfiguration
+        );
+           require!(
+            config_account.config.marketing_wallet_2 != Pubkey::default(),
+            ErrorCode::InvalidConfiguration
+        );
+
+
 
         msg!("CHAR Coin initialized with donation wallets configured");
         Ok(())
@@ -257,7 +281,7 @@ pub struct Config {
     pub monthly_reward_wallet: Pubkey,
     pub annual_reward_wallet: Pubkey,
     pub monthly_donation_wallet: Pubkey,
-    pub annual_charity_wallet: Pubkey,
+    pub annual_donation_wallet: Pubkey,
     pub chai_funds: Pubkey,
     pub marketing_wallet_1: Pubkey,
     pub marketing_wallet_2: Pubkey,
