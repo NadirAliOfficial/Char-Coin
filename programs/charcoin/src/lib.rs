@@ -273,12 +273,12 @@ pub mod charcoin {
         );
         marketing::distribute_marketing_funds(ctx, total_amount)
     }
-    pub fn initialize_marketing_wallet_handler(
+    pub fn change_marketing_wallet_handler(
         ctx: Context<InitializeMarketingWallet>,
         marketing_wallet_1: Pubkey,
         marketing_wallet_2: Pubkey,
     ) -> Result<()> {
-        marketing::initialize_marketing_wallet(ctx, marketing_wallet_1, marketing_wallet_2)
+        marketing::change_marketing_wallet(ctx, marketing_wallet_1, marketing_wallet_2)
     }
 }
 

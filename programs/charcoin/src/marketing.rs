@@ -133,7 +133,7 @@ pub fn distribute_marketing_funds(
     Ok(())
 }
 
-pub fn initialize_marketing_wallet(
+pub fn change_marketing_wallet(
     ctx: Context<InitializeMarketingWallet>,
     marketing_wallet_1: Pubkey,
     marketing_wallet_2: Pubkey,

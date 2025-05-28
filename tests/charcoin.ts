@@ -256,7 +256,6 @@ describe("char coin test", () => {
           tokenProgram: TOKEN_PROGRAM_ID,
         })
         .signers([user])
-
         .rpc();
       }catch (e) {
        if (e instanceof anchor.AnchorError) {
@@ -265,6 +264,43 @@ describe("char coin test", () => {
         assert(false);
       }
       }
+  });
+
+
+     it("Emergency halt", async () => {
+            let data = await program.account.configAccount.fetch(configAccount.publicKey)
+            assert.equal(data.config.halted,false)
+      await program.methods
+        .changeEmergencyStateHandler(true)
+        .accounts({
+       configAccount: configAccount.publicKey,  
+                 systemProgram: anchor.web3.SystemProgram.programId,
+                 payer: admin.publicKey,
+ 
+        })
+        .signers([admin])
+        .rpc();
+            data = await program.account.configAccount.fetch(configAccount.publicKey)
+            assert.equal(data.config.halted,true)
+     
+  });
+
+
+     it("distribute marketing funds", async () => {
+        
+      await program.methods
+        .distributeMarketingFundsHandler(1000e6)
+        .accounts({
+       configAccount: configAccount.publicKey,  
+          tokenProgram: TOKEN_PROGRAM_ID,
+          payer: admin.publicKey,
+          destWallet1Ata:
+          destWallet2Ata:
+        })
+        .signers([admin])
+        .rpc();
+    
+     
   });
 
 
