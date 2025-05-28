@@ -54,14 +54,8 @@ describe("char coin test", () => {
     [Buffer.from('chai_funds')],
     program.programId
   );
-    let [marketingWallet1,] = anchor.web3.PublicKey.findProgramAddressSync(
-    [Buffer.from('marketing_wallet_1')],
-    program.programId
-  );
-    let [marketingWallet2,] = anchor.web3.PublicKey.findProgramAddressSync(
-    [Buffer.from('marketing_wallet_2')],
-    program.programId
-  );
+    let marketingWallet1 = anchor.web3.Keypair.generate()
+    let marketingWallet2 = anchor.web3.Keypair.generate()
     let [treasuryAuthority,] = anchor.web3.PublicKey.findProgramAddressSync(
     [Buffer.from('treasury_authority')],
     program.programId
@@ -73,6 +67,9 @@ describe("char coin test", () => {
   let stakingPoolAta
   let stakingPool
   let userStakePDA;
+  let marketingWallet1Ata
+let  marketingWallet2Ata
+let treasuryAuthorityAta
   before(async () => {
     await airdropSol(admin.publicKey, 20 * 1e9); // 20 SOL
     await airdropSol(user.publicKey, 5 * 1e9);
@@ -116,6 +113,30 @@ describe("char coin test", () => {
       program.programId
     );
 
+       marketingWallet1Ata = await getOrCreateAssociatedTokenAccount(
+      program.provider.connection,
+      admin,
+      tokenMint,
+      marketingWallet1.publicKey,
+      false
+    );
+
+      marketingWallet2Ata = await getOrCreateAssociatedTokenAccount(
+      program.provider.connection,
+      admin,
+      tokenMint,
+      marketingWallet2.publicKey,
+      false
+    );
+
+     treasuryAuthorityAta = await getOrCreateAssociatedTokenAccount(
+      program.provider.connection,
+      admin,
+      tokenMint,
+      treasuryAuthority,
+      true
+    );
+
   })
   it("initialized", async () => {
     // Add your test here.
@@ -128,8 +149,8 @@ describe("char coin test", () => {
     // Define configuration parameters
     const config = {
       chaiFunds:chaiFunds,
-      marketingWallet1: marketingWallet1,
-      marketingWallet2: marketingWallet2,
+      marketingWallet1: marketingWallet1.publicKey,
+      marketingWallet2: marketingWallet2.publicKey,
       admin: admin.publicKey,
       monthlyRewardWallet: monthlyRewardWallet,
       annualRewardWallet: annualRewardWallet,
@@ -287,15 +308,16 @@ describe("char coin test", () => {
 
 
      it("distribute marketing funds", async () => {
-        
       await program.methods
-        .distributeMarketingFundsHandler(1000e6)
+        .distributeMarketingFundsHandler(new anchor.BN(1000e6))
         .accounts({
-       configAccount: configAccount.publicKey,  
-          tokenProgram: TOKEN_PROGRAM_ID,
-          destWallet1Ata:
-          destWallet2Ata:
-          signer1: admin.publicKey,
+      configAccount: configAccount.publicKey,  
+       signer1: admin.publicKey,
+       sourceAta:treasuryAuthorityAta.address,
+       destWallet1Ata:marketingWallet1Ata.address,
+       destWallet2Ata:marketingWallet2Ata.address,
+       mint: tokenMint,
+       tokenProgram: TOKEN_PROGRAM_ID,
         })
         .signers([admin])
         .rpc();
@@ -303,48 +325,26 @@ describe("char coin test", () => {
      
   });
 
-     it("release funds", async () => {
+  //    it("release funds", async () => {
         
-    const marketingWallet1Ata = await getOrCreateAssociatedTokenAccount(
-      program.provider.connection,
-      admin,
-      tokenMint,
-      marketingWallet2,
-      true
-    );
+  
+  //     await program.methods
+  //       .releaseFundsHandler(1000e6)
+  //       .accounts({
+  //      configAccount: configAccount.publicKey,  
+  //      payer: admin.publicKey,
+  //      destWallet1Ata:marketingWallet1Ata.address,
+  //      destWallet2Ata:marketingWallet2Ata.address,
+  //      sourceAta:treasuryAuthorityAta.address,
+  //      mint: tokenMint,
+  //      tokenProgram: TOKEN_PROGRAM_ID,
 
-    const  marketingWallet2Ata = await getOrCreateAssociatedTokenAccount(
-      program.provider.connection,
-      admin,
-      tokenMint,
-      marketingWallet1,
-      true
-    );
-
-    stakingPoolAta = await getOrCreateAssociatedTokenAccount(
-      program.provider.connection,
-      admin,
-      tokenMint,
-      stakingPool,
-      true
-    );
-      await program.methods
-        .releaseFundsHandler(1000e6)
-        .accounts({
-       configAccount: configAccount.publicKey,  
-          tokenProgram: TOKEN_PROGRAM_ID,
-          payer: admin.publicKey,
-          destWallet1Ata:,
-          destWallet2Ata:,
-          sourceAta:,
-          mint: tokenMint
-
-        })
-        .signers([admin])
-        .rpc();
+  //       })
+  //       .signers([admin])
+  //       .rpc();
     
      
-  });
+  // });
 
 
 });

@@ -38,14 +38,14 @@ pub struct DistributeMarketingFunds<'info> {
     /// Destination token account for Marketing Wallet 1 funds.
     #[account(
         mut,
-        constraint = dest_wallet1_ata.owner == config_account.config.marketing_wallet_1,// Ensure the owner matches the marketing wallet
+        constraint = dest_wallet1_ata.owner == config_account.config.marketing_wallet_1 ,// Ensure the owner matches the marketing wallet1
 
     )]
     pub dest_wallet1_ata: Account<'info, TokenAccount>,
     /// Destination token  account for Marketing Wallet 2 funds.
     #[account(
         mut,
-        constraint = dest_wallet2_ata.owner == config_account.config.marketing_wallet_2,// Ensure the owner matches the marketing wallet
+        constraint = dest_wallet2_ata.owner == config_account.config.marketing_wallet_2,// Ensure the owner matches the marketing wallet2
     )]
     pub dest_wallet2_ata: Account<'info, TokenAccount>,
     #[account(mut)]
