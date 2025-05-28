@@ -287,7 +287,9 @@ pub struct InitializeTreasury<'info> {
     #[account(init, seeds=[b"treasury".as_ref()],
             bump, payer = signer, space = 8 + (32 * 10) + 1 + 8)]
     pub treasury: Account<'info, Treasury>,
-    #[account(mut)]
+    #[account(mut,
+        constraint = signer.key() == config_account.config.admin,
+    )]
     pub signer: Signer<'info>,
     pub system_program: Program<'info, System>,
 }
@@ -301,7 +303,7 @@ pub struct CreateWithdrawal<'info> {
         )]    pub config_account: Account<'info, ConfigAccount>,
     #[account(mut)]
     pub treasury: Account<'info, Treasury>,
-    #[account(init, payer = signer, space = 8 + 8 + 32 + (32 * 10) + 1)]
+    #[account(init, payer = signer, seeds=[b"withdrawal".as_ref()],bump,space = 8 + 8 + 32 + (32 * 10) + 1)]
     pub withdrawal: Account<'info, WithdrawalProposal>,
     #[account(mut)]
     pub signer: Signer<'info>,
@@ -310,8 +312,11 @@ pub struct CreateWithdrawal<'info> {
 
 #[derive(Accounts)]
 pub struct ApproveWithdrawal<'info> {
-         #[account(mut)]
-    pub config_account: Account<'info, ConfigAccount>,
+   #[account(
+            mut,
+            seeds=[b"config".as_ref()],
+            bump
+        )]    pub config_account: Account<'info, ConfigAccount>,
     #[account(mut)]
     pub treasury: Account<'info, Treasury>,
     #[account(mut)]
@@ -331,9 +336,12 @@ pub struct ExecuteWithdrawal<'info> {
     pub treasury: Account<'info, Treasury>,
     #[account(mut)]
     pub withdrawal: Account<'info, WithdrawalProposal>,
-    /// CHECK: Recipient account; no additional checks.
+        /// CHECK: Recipient account; no additional checks.
+
     #[account(mut)]
-    pub recipient: AccountInfo<'info>,
+    pub recipient:  AccountInfo<'info>,
+        #[account(mut)]
+    pub signer: Signer<'info>,
 }
 
 #[derive(Accounts)]

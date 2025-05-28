@@ -199,16 +199,16 @@ pub mod charcoin {
 
     // Emergency halt
 
-    pub fn initialize_multisig_handler(
-        ctx: Context<InitializeMultisig>,
-        params: InitializeMultisigParams,
-    ) -> Result<()> {
-        security::initialize_multisig(ctx, params)
-    }
+    // pub fn initialize_multisig_handler(
+    //     ctx: Context<InitializeMultisig>,
+    //     params: InitializeMultisigParams,
+    // ) -> Result<()> {
+    //     security::initialize_multisig(ctx, params)
+    // }
 
-    pub fn verify_multisig_handler(ctx: Context<ExecuteMultisig>) -> Result<()> {
-        security::verify_multisig(&ctx)
-    }
+    // pub fn verify_multisig_handler(ctx: Context<ExecuteMultisig>) -> Result<()> {
+    //     security::verify_multisig(&ctx)
+    // }
 
     pub fn change_emergency_state_handler(
         ctx: Context<InitializeEmergencyState>,
