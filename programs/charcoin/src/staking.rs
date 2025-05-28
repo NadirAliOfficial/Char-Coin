@@ -184,7 +184,11 @@ pub struct StakeInitialize<'info> {
 
 #[derive(Accounts)]
 pub struct Stake<'info> {
-        #[account(mut)]
+        #[account(
+            mut,
+            seeds=[b"config".as_ref()],
+            bump
+        )]
     pub config_account: Account<'info, ConfigAccount>,
     #[account(seeds = [b"staking_pool".as_ref(), staking_pool.token_mint.as_ref()],
         bump = staking_pool.bump,
@@ -222,7 +226,11 @@ pub struct Stake<'info> {
 
 #[derive(Accounts)]
 pub struct Unstake<'info> {
-            #[account(mut)]
+              #[account(
+            mut,
+            seeds=[b"config".as_ref()],
+            bump
+        )]
     pub config_account: Account<'info, ConfigAccount>,
     #[account(seeds = [b"staking_pool".as_ref(), staking_pool.token_mint.as_ref()],
         bump = staking_pool.bump,
@@ -263,7 +271,11 @@ pub struct Unstake<'info> {
 
 #[derive(Accounts)]
 pub struct UnstakeRequest<'info> {
-            #[account(mut)]
+        #[account(
+            mut,
+            seeds=[b"config".as_ref()],
+            bump
+        )]
     pub config_account: Account<'info, ConfigAccount>,
     #[account(seeds = [b"staking_pool".as_ref(), staking_pool.token_mint.as_ref()],
         bump = staking_pool.bump,
@@ -286,7 +298,11 @@ pub struct UnstakeRequest<'info> {
 
 #[derive(Accounts)]
 pub struct ClaimReward<'info> {
-            #[account(mut)]
+          #[account(
+            mut,
+            seeds=[b"config".as_ref()],
+            bump
+        )]
     pub config_account: Account<'info, ConfigAccount>,
     #[account(
         seeds = [b"staking_pool".as_ref(), staking_pool.token_mint.as_ref()],

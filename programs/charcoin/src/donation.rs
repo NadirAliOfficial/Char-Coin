@@ -157,8 +157,11 @@ pub fn finalize_charity_vote(ctx: Context<FinalizeCharityVote>) -> Result<()> {
 
 #[derive(Accounts)]
 pub struct RegisterCharity<'info> {
-         #[account(mut)]
-    pub config_account: Account<'info, ConfigAccount>,
+  #[account(
+            mut,
+            seeds=[b"config".as_ref()],
+            bump
+        )]    pub config_account: Account<'info, ConfigAccount>,
     #[account(init, payer = registrar, space = 8 + 8 + 4 + 64 + 4 + 256 + 32 + 8 + 8 + 1)]
     pub charity: Account<'info, Charity>,
     #[account(mut)]
@@ -170,8 +173,11 @@ pub struct RegisterCharity<'info> {
 #[derive(Accounts)]
 #[instruction()]
 pub struct CastVote<'info> {
-         #[account(mut)]
-    pub config_account: Account<'info, ConfigAccount>,
+  #[account(
+            mut,
+            seeds=[b"config".as_ref()],
+            bump
+        )]    pub config_account: Account<'info, ConfigAccount>,
     #[account(mut)]
     pub charity: Account<'info, Charity>,
     #[account(init_if_needed,
@@ -196,8 +202,11 @@ pub struct CastVote<'info> {
 
 #[derive(Accounts)]
 pub struct FinalizeCharityVote<'info> {
-         #[account(mut)]
-    pub config_account: Account<'info, ConfigAccount>,
+  #[account(
+            mut,
+            seeds=[b"config".as_ref()],
+            bump
+        )]    pub config_account: Account<'info, ConfigAccount>,
     #[account(mut)]
     pub charity: Account<'info, Charity>,
     #[account(mut)]

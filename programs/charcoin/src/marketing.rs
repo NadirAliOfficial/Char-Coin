@@ -13,8 +13,11 @@ pub struct MarketingFundDistributionEvent {
 #[derive(Accounts)]
 pub struct DistributeMarketingFunds<'info> {
     /// The marketing wallet that tracks allocated funds.
-    #[account(mut)]
-    pub config_account: Account<'info, ConfigAccount>,
+  #[account(
+            mut,
+            seeds=[b"config".as_ref()],
+            bump
+        )]    pub config_account: Account<'info, ConfigAccount>,
     /// The multisig configuration account (for approval, if needed).
     // #[account(mut)]
     // pub multisig: Account<'info, crate::security::Multisig>,

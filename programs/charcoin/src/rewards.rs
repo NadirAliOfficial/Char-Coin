@@ -7,7 +7,11 @@ use crate::{ConfigAccount};
 
 #[derive(Accounts)]
 pub struct ReleaseMonthlyFunds<'info> {
-    #[account(mut)]
+     #[account(
+            mut,
+            seeds=[b"config".as_ref()],
+            bump
+        )]
     pub config_account: Account<'info, ConfigAccount>,
 
     /// CHECK: Treasury token account holding funds to be distributed.

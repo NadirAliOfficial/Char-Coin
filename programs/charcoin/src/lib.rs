@@ -310,7 +310,9 @@ pub struct ConfigAccount {
 /// Accounts for initialization.
 #[derive(Accounts)]
 pub struct Initialize<'info> {
-    #[account(init, payer = user, space = 8 + std::mem::size_of::<ConfigAccount>())]
+    #[account(init, payer = user, 
+        seeds=[b"config".as_ref()],
+         bump, space = 8 + std::mem::size_of::<ConfigAccount>())]
     pub config: Account<'info, ConfigAccount>,
     #[account(mut)]
     pub mint: Account<'info, Mint>,

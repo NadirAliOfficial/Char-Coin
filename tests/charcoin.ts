@@ -23,9 +23,12 @@ describe("char coin test", () => {
 
   const admin = anchor.web3.Keypair.generate()
   const user = anchor.web3.Keypair.generate();
-  const configAccount = anchor.web3.Keypair.generate();
-
   const program = anchor.workspace.charcoin as Program<Charcoin>;
+  const configAccount =  anchor.web3.PublicKey.findProgramAddressSync(
+      [Buffer.from('config')],
+      program.programId
+    );
+
 
   // Derive monthly reward wallet PDA
   let monthlyRewardWallet = anchor.web3.Keypair.generate()
@@ -133,7 +136,7 @@ describe("char coin test", () => {
     const context = {
       user: admin.publicKey,
       systemProgram: anchor.web3.SystemProgram.programId,
-      config: configAccount.publicKey,
+      config: configAccount,
       mint: tokenMint
     }
     // Define configuration parameters
@@ -150,7 +153,7 @@ describe("char coin test", () => {
     };
     await program.methods.initialize(config)
       .accounts(context)
-      .signers([admin, configAccount])
+      .signers([admin])
       .rpc();
 
     await program.methods
@@ -180,7 +183,7 @@ describe("char coin test", () => {
         new anchor.BN(30) // 30 days
       )
       .accounts({
-        configAccount: configAccount.publicKey,
+        configAccount: configAccount,
 
         stakingPool: stakingPool,
         user: userStakePDA,
@@ -210,7 +213,7 @@ describe("char coin test", () => {
     await program.methods
       .requestUnstakeHandler()
       .accounts({
-        configAccount: configAccount.publicKey,
+        configAccount: configAccount,
         stakingPool: stakingPool,
         user: userStakePDA,
         userAuthority: user.publicKey,
@@ -229,7 +232,7 @@ describe("char coin test", () => {
       await program.methods
         .unstakeTokensHandler()
         .accounts({
-          configAccount: configAccount.publicKey,
+          configAccount: configAccount,
           stakingPool: stakingPool,
           user: userStakePDA,
           userAuthority: user.publicKey,
@@ -258,7 +261,7 @@ describe("char coin test", () => {
       await program.methods
         .claimRewardHandler()
         .accounts({
-          configAccount: configAccount.publicKey,
+          configAccount: configAccount,
           stakingPool: stakingPool,
           user: userStakePDA,
           userAuthority: user.publicKey,
@@ -279,19 +282,20 @@ describe("char coin test", () => {
 
 
   it("Emergency halt", async () => {
-    let data = await program.account.configAccount.fetch(configAccount.publicKey)
+    console.log(configAccount)
+    let data = await program.account.configAccount.fetch(configAccount[0])
     assert.equal(data.config.halted, false)
     await program.methods
       .changeEmergencyStateHandler(true)
       .accounts({
-        configAccount: configAccount.publicKey,
+        configAccount: configAccount,
         systemProgram: anchor.web3.SystemProgram.programId,
         payer: admin.publicKey,
 
       })
       .signers([admin])
       .rpc();
-    data = await program.account.configAccount.fetch(configAccount.publicKey)
+    data = await program.account.configAccount.fetch(configAccount[0])
     assert.equal(data.config.halted, true)
 
   });
@@ -302,7 +306,7 @@ describe("char coin test", () => {
       await program.methods
         .distributeMarketingFundsHandler(new anchor.BN(1000e6))
         .accounts({
-          configAccount: configAccount.publicKey,
+          configAccount: configAccount,
           signer1: treasuryAuthority.publicKey,
           sourceAta: treasuryAuthorityAta.address,
           destWallet1Ata: marketingWallet1Ata.address,
@@ -324,7 +328,7 @@ describe("char coin test", () => {
     await program.methods
       .changeEmergencyStateHandler(false)
       .accounts({
-        configAccount: configAccount.publicKey,
+        configAccount: configAccount,
         systemProgram: anchor.web3.SystemProgram.programId,
         payer: admin.publicKey,
 
@@ -350,7 +354,7 @@ describe("char coin test", () => {
     await program.methods
       .distributeMarketingFundsHandler(new anchor.BN(total))
       .accounts({
-        configAccount: configAccount.publicKey,
+        configAccount: configAccount,
         signer1: treasuryAuthority.publicKey,
         sourceAta: treasuryAuthorityAta.address,
         destWallet1Ata: marketingWallet1Ata.address,
@@ -411,7 +415,7 @@ describe("char coin test", () => {
     await program.methods
       .releaseFundsHandler(new anchor.BN(total))
       .accounts({
-        configAccount: configAccount.publicKey,
+        configAccount: configAccount,
         treasuryAuthority: treasuryAuthority.publicKey,
         treasuryAta: treasuryAuthorityAta.address,
         chaiFundsAta: chaiFundsAta.address,
@@ -427,7 +431,7 @@ describe("char coin test", () => {
   })
 
   it("submitProposal", async () => {
-    let data = await program.account.configAccount.fetch(configAccount.publicKey)
+    let data = await program.account.configAccount.fetch(configAccount[0])
 
     const [proposalAccount] = anchor.web3.PublicKey.findProgramAddressSync(
       [Buffer.from('proposal'), user.publicKey.toBuffer(), data.config.nextProposalId.toArrayLike(Buffer, "le", 8)],
@@ -440,7 +444,7 @@ describe("char coin test", () => {
     await program.methods
       .submitProposalHandler(proposalTitle, proposalDescription, new anchor.BN(proposalDuration))
       .accounts({
-        configAccount: configAccount.publicKey,
+        configAccount: configAccount,
         proposal: proposalAccount,
         creator: user.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -460,7 +464,7 @@ describe("char coin test", () => {
       await program.methods
         .voteOnProposalHandler(new anchor.BN(0), voteChoice)
         .accounts({
-          configAccount: configAccount.publicKey,
+          configAccount: configAccount,
           proposal: proposalAccount,
           voter: user.publicKey,
           user: userStakePDA,
@@ -489,15 +493,53 @@ describe("char coin test", () => {
     await program.methods
       .finalizeProposalHandler()
       .accounts({
-        configAccount: configAccount.publicKey,
+        configAccount: configAccount,
         proposal: proposalAccount,
         admin: user.publicKey,
       })
       .signers([user])
       .rpc();
   })
+  // it("init dao treasury", async () => {
+  //   const owners = [
+  //     admin.publicKey,
 
+  //   ]
+  //      const tx = await program.methods
+  //         .initializeTreasuryHandler(owners, 2)
+  //         .accounts({
+  //           treasury: treasury.publicKey,
+  //           signer: wallet.publicKey,
+  //           systemProgram: SystemProgram.programId
+  //         })
+  //         .signers([treasury, wallet.payer])
+  //         .rpc();
+  // })
 
+// it("register Charity", async () => {
+//      let id =  1;
+//     let name =  "Water for All";
+//     let description =  "Water for underserved communities";
+//     let charityWallet =  wallet.publicKey.toBase58();
+//     let startTime =  Math.floor(Date.now() / 1000) ; 
+//     let endTime =  Math.floor(Date.now() / 1000) + 60;
+//   const tx = await program.methods
+//     .registerCharityHandler(
+//       new anchor.BN(0),
+//       name,
+//       description,
+//       new PublicKey(charityWallet),
+//       new anchor.BN(startTime),
+//       new anchor.BN(endTime)
+//     )
+//     .accounts({
+//       charity: charityKeypair.publicKey,
+//       registrar: registrarKeypair.publicKey,
+//       systemProgram: SystemProgram.programId,
+//     })
+//     .signers([registrarKeypair, charityKeypair])
+//     .rpc();
+// })
 });
 
 

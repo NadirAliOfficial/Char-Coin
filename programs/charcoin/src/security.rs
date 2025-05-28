@@ -117,7 +117,11 @@ pub enum MultisigError {
 
 #[derive(Accounts)]
 pub struct InitializeEmergencyState<'info> {
-    #[account(mut)]
+      #[account(
+            mut,
+            seeds=[b"config".as_ref()],
+            bump
+        )]
     pub config_account: Account<'info, ConfigAccount>,
 
     #[account(
