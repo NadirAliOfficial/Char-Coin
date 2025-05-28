@@ -1,20 +1,21 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token, Transfer};
 
-use crate::ConfigAccount;
+use crate::{ConfigAccount, StakingPool};
 
 
 
 #[derive(Accounts)]
 pub struct ReleaseMonthlyFunds<'info> {
-         #[account(mut)]
+    #[account(mut)]
     pub config_account: Account<'info, ConfigAccount>,
+
     /// CHECK: Treasury token account holding funds to be distributed.
     #[account(mut)]
     pub treasury: UncheckedAccount<'info>,
     /// CHECK: Destination token account for staking rewards (15%).
     #[account(mut)]
-    pub staking_rewards: UncheckedAccount<'info>,
+    pub staking_reward_account: UncheckedAccount<'info>,
     /// CHECK: Destination token account for monthly rewards (7.5%).
     #[account(mut)]
     pub monthly_reward: UncheckedAccount<'info>,
@@ -32,6 +33,10 @@ pub struct ReleaseMonthlyFunds<'info> {
     #[account(mut)]
     pub chai_funds: UncheckedAccount<'info>,
     /// Authority for treasury withdrawals.
+    #[account(
+        mut,
+        constraint = config_account.config.treasury_authority == treasury_authority.key()
+    )]
     pub treasury_authority: Signer<'info>,
     pub token_program: Program<'info, Token>,
 }
@@ -111,7 +116,7 @@ pub fn release_funds(ctx: Context<ReleaseMonthlyFunds>, total_amount: u64) -> Re
             ctx.accounts.token_program.to_account_info(),
             Transfer {
                 from: ctx.accounts.treasury.to_account_info(),
-                to: ctx.accounts.staking_rewards.to_account_info(),
+                to: ctx.accounts.staking_reward_account.to_account_info(),
                 authority: ctx.accounts.treasury_authority.to_account_info(),
             },
         ),

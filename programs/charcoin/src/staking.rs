@@ -154,9 +154,8 @@ pub fn claim_reward(ctx: Context<ClaimReward>) -> Result<()> {
     let cpi_program = ctx.accounts.token_program.to_account_info();
     let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
     token::transfer(cpi_ctx, reward_amount)?;
-    // user.staked_at += (min_staking_duration * periods) as i64;
 
-    // staking_pool.reward_issued += reward_amount as i64;
+    ctx.accounts.staking_pool.reward_issued += reward_amount as i64;
     msg!("Claimed reward of {} tokens", reward_amount);
     Ok(())
 }
@@ -168,7 +167,7 @@ pub struct StakeInitialize<'info> {
     #[account(
         init,
         payer = authority,
-        space = 8 + StakingPool::LEN,
+        space = 8 + std::mem::size_of::<StakingPool>(),
         seeds = [b"staking_pool".as_ref(), token_mint.key().as_ref()],
         bump
     )]
@@ -328,14 +327,13 @@ pub struct StakingPool {
     pub authority: Pubkey,
     pub token_mint: Pubkey,
     pub pool_token_account: Pubkey,
+    pub staking_reward_account: Pubkey,
     pub total_staked: u64,
     pub reward_issued: i64,
     pub bump: u8,
 }
 
-impl StakingPool {
-    pub const LEN: usize = 32 + 32 + 32 + 8 + 8 + 1;
-}
+
 
 #[account]
 pub struct UserStakeInfo {

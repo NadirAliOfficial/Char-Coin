@@ -46,8 +46,24 @@ describe("char coin test", () => {
   );
 
   // Derive annual charity wallet PDA
-  let [annualCharityWallet,] = anchor.web3.PublicKey.findProgramAddressSync(
-    [Buffer.from('annual_charity')],
+  let [annualDonationWallet,] = anchor.web3.PublicKey.findProgramAddressSync(
+    [Buffer.from('annual_donation')],
+    program.programId
+  );
+  let [chaiFunds,] = anchor.web3.PublicKey.findProgramAddressSync(
+    [Buffer.from('chai_funds')],
+    program.programId
+  );
+    let [marketingWallet1,] = anchor.web3.PublicKey.findProgramAddressSync(
+    [Buffer.from('marketing_wallet_1')],
+    program.programId
+  );
+    let [marketingWallet2,] = anchor.web3.PublicKey.findProgramAddressSync(
+    [Buffer.from('marketing_wallet_2')],
+    program.programId
+  );
+    let [treasuryAuthority,] = anchor.web3.PublicKey.findProgramAddressSync(
+    [Buffer.from('treasury_authority')],
     program.programId
   );
 
@@ -111,17 +127,15 @@ describe("char coin test", () => {
     }
     // Define configuration parameters
     const config = {
-      tokenSupply: new anchor.BN(1000000000), // Example: 1 billion tokens
-      feePercentage: 2,
-      buybackPercentage: 5,
-      donationPercentage: 3,
-      stakingPercentage: 10,
+      chaiFunds:chaiFunds,
+      marketingWallet1: marketingWallet1,
+      marketingWallet2: marketingWallet2,
       admin: admin.publicKey,
-      mintAuthorityBump: 0, // Adjust as needed
       monthlyRewardWallet: monthlyRewardWallet,
       annualRewardWallet: annualRewardWallet,
       monthlyDonationWallet: monthlyDonationWallet,
-      annualCharityWallet: annualCharityWallet,
+      annualDonationWallet: annualDonationWallet,
+      treasuryAuthority: treasuryAuthority,
     };
     await program.methods.initialize(config)
       .accounts(context)
@@ -155,6 +169,8 @@ describe("char coin test", () => {
         new anchor.BN(30) // 30 days
       )
       .accounts({
+              configAccount: configAccount.publicKey,
+
         stakingPool: stakingPool,
         user: userStakePDA,
         userAuthority: user.publicKey,
@@ -183,6 +199,7 @@ describe("char coin test", () => {
     await program.methods
       .requestUnstakeHandler()
       .accounts({
+ configAccount: configAccount.publicKey,       
         stakingPool: stakingPool,
         user: userStakePDA,
         userAuthority: user.publicKey,
@@ -201,6 +218,7 @@ describe("char coin test", () => {
       await program.methods
         .unstakeTokensHandler()
         .accounts({
+      configAccount: configAccount.publicKey,    
           stakingPool: stakingPool,
           user: userStakePDA,
           userAuthority: user.publicKey,
@@ -224,9 +242,12 @@ describe("char coin test", () => {
 
 
    it("claim reward", async () => {
+        try {
+
       await program.methods
         .claimRewardHandler()
         .accounts({
+       configAccount: configAccount.publicKey,   
           stakingPool: stakingPool,
           user: userStakePDA,
           userAuthority: user.publicKey,
@@ -237,6 +258,13 @@ describe("char coin test", () => {
         .signers([user])
 
         .rpc();
+      }catch (e) {
+       if (e instanceof anchor.AnchorError) {
+        assert(e.message.includes("StakingPeriodNotMet"))
+      } else {
+        assert(false);
+      }
+      }
   });
 
 

@@ -29,7 +29,7 @@ pub mod charcoin {
         let config_account = &mut ctx.accounts.config;
         config_account.config = config;
 
-        // Validate charity wallets
+        // Validate wallets
         require!(
             config_account.config.monthly_reward_wallet != Pubkey::default(),
             ErrorCode::InvalidConfiguration
@@ -58,6 +58,16 @@ pub mod charcoin {
         );
            require!(
             config_account.config.marketing_wallet_2 != Pubkey::default(),
+            ErrorCode::InvalidConfiguration
+        );
+
+        require!(
+            config_account.config.admin != Pubkey::default(),
+            ErrorCode::InvalidConfiguration
+        );
+
+            require!(
+            config_account.config.treasury_authority != Pubkey::default(),
             ErrorCode::InvalidConfiguration
         );
 
@@ -285,6 +295,7 @@ pub struct Config {
     pub chai_funds: Pubkey,
     pub marketing_wallet_1: Pubkey,
     pub marketing_wallet_2: Pubkey,
+    pub treasury_authority: Pubkey,
     /// emergency state that indicates if the contract is halted.
     pub halted: bool,
 }
