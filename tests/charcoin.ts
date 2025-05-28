@@ -430,6 +430,25 @@ describe("char coin test", () => {
       .rpc();
   })
 
+   it("init dao treasury", async () => {
+     const [treasuryAccount] = anchor.web3.PublicKey.findProgramAddressSync(
+      [Buffer.from('treasury'), ],
+      program.programId
+    );
+    const owners = [
+      admin.publicKey,
+treasuryAuthority.publicKey
+    ]
+       const tx = await program.methods
+          .initializeTreasuryHandler(owners, 2)
+          .accounts({
+            treasury: treasuryAccount,
+            signer: admin.publicKey,
+            systemProgram: anchor.web3.SystemProgram.programId,
+          })
+          .signers([admin])
+          .rpc();
+  })
   it("submitProposal", async () => {
     let data = await program.account.configAccount.fetch(configAccount[0])
 
@@ -500,21 +519,7 @@ describe("char coin test", () => {
       .signers([user])
       .rpc();
   })
-  // it("init dao treasury", async () => {
-  //   const owners = [
-  //     admin.publicKey,
-
-  //   ]
-  //      const tx = await program.methods
-  //         .initializeTreasuryHandler(owners, 2)
-  //         .accounts({
-  //           treasury: treasury.publicKey,
-  //           signer: wallet.publicKey,
-  //           systemProgram: SystemProgram.programId
-  //         })
-  //         .signers([treasury, wallet.payer])
-  //         .rpc();
-  // })
+ 
 
 // it("register Charity", async () => {
 //      let id =  1;
