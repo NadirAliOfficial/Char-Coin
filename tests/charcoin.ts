@@ -361,6 +361,8 @@ let treasuryAuthorityAta
     assert.equal(balance.value.amount, "0");
     balance = (await program.provider.connection.getTokenAccountBalance(marketingWallet2Ata.address))
     assert.equal(balance.value.amount, "0");
+    let totalSupply = (await program.provider.connection.getTokenSupply(tokenMint)).value.amount;
+    
       await program.methods
         .distributeMarketingFundsHandler(new anchor.BN(total))
         .accounts({
@@ -378,6 +380,8 @@ let treasuryAuthorityAta
     assert.equal(balance.value.amount, amount_wallet1.toString());
       balance = (await program.provider.connection.getTokenAccountBalance(marketingWallet2Ata.address))
     assert.equal(balance.value.amount, amount_wallet2.toString());
+    let totalSupplyAfter = (await program.provider.connection.getTokenSupply(tokenMint)).value.amount;
+    assert.equal(Number(totalSupplyAfter)+Number(amount_death),Number(totalSupply))
       })
 
 
