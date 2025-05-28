@@ -327,7 +327,6 @@ pub struct StakingPool {
     pub authority: Pubkey,
     pub token_mint: Pubkey,
     pub pool_token_account: Pubkey,
-    pub staking_reward_account: Pubkey,
     pub total_staked: u64,
     pub reward_issued: i64,
     pub bump: u8,

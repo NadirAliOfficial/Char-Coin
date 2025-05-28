@@ -28,32 +28,16 @@ describe("char coin test", () => {
   const program = anchor.workspace.charcoin as Program<Charcoin>;
 
   // Derive monthly reward wallet PDA
-  let [monthlyRewardWallet,] = anchor.web3.PublicKey.findProgramAddressSync(
-    [Buffer.from('monthly_reward')],
-    program.programId
-  );
-
+  let monthlyRewardWallet = anchor.web3.Keypair.generate() 
   // Derive annual reward wallet PDA
-  let [annualRewardWallet,] = anchor.web3.PublicKey.findProgramAddressSync(
-    [Buffer.from('annual_reward')],
-    program.programId
-  );
+  let annualRewardWallet = anchor.web3.Keypair.generate() 
 
   // Derive monthly donation wallet PDA
-  let [monthlyDonationWallet,] = anchor.web3.PublicKey.findProgramAddressSync(
-    [Buffer.from('monthly_donation')],
-    program.programId
-  );
+  let monthlyDonationWallet = anchor.web3.Keypair.generate() 
 
   // Derive annual charity wallet PDA
-  let [annualDonationWallet,] = anchor.web3.PublicKey.findProgramAddressSync(
-    [Buffer.from('annual_donation')],
-    program.programId
-  );
-  let [chaiFunds,] = anchor.web3.PublicKey.findProgramAddressSync(
-    [Buffer.from('chai_funds')],
-    program.programId
-  );
+  let annualDonationWallet = anchor.web3.Keypair.generate() 
+    let chaiFunds = anchor.web3.Keypair.generate()
     let marketingWallet1 = anchor.web3.Keypair.generate()
     let marketingWallet2 = anchor.web3.Keypair.generate()
     let treasuryAuthority= anchor.web3.Keypair.generate()
@@ -154,14 +138,14 @@ let treasuryAuthorityAta
     }
     // Define configuration parameters
     const config = {
-      chaiFunds:chaiFunds,
+      chaiFunds:chaiFunds.publicKey,
       marketingWallet1: marketingWallet1.publicKey,
       marketingWallet2: marketingWallet2.publicKey,
       admin: admin.publicKey,
-      monthlyRewardWallet: monthlyRewardWallet,
-      annualRewardWallet: annualRewardWallet,
-      monthlyDonationWallet: monthlyDonationWallet,
-      annualDonationWallet: annualDonationWallet,
+      monthlyRewardWallet: monthlyRewardWallet.publicKey,
+      annualRewardWallet: annualRewardWallet.publicKey,
+      monthlyDonationWallet: monthlyDonationWallet.publicKey,
+      annualDonationWallet: annualDonationWallet.publicKey,
       treasuryAuthority: treasuryAuthority.publicKey,
     };
     await program.methods.initialize(config)
@@ -383,7 +367,66 @@ let treasuryAuthorityAta
     let totalSupplyAfter = (await program.provider.connection.getTokenSupply(tokenMint)).value.amount;
     assert.equal(Number(totalSupplyAfter)+Number(amount_death),Number(totalSupply))
       })
+      it("distribute chai funds", async () => {
 
+
+       let chaiFundsAta = await getOrCreateAssociatedTokenAccount(
+      program.provider.connection,
+      admin,
+      tokenMint,
+      chaiFunds.publicKey,
+      false
+    );
+      let annualDonationAta = await getOrCreateAssociatedTokenAccount(
+      program.provider.connection,
+      admin,
+      tokenMint,
+      annualDonationWallet.publicKey,
+      false
+    );
+
+      let monthlyDonationAta = await getOrCreateAssociatedTokenAccount(
+      program.provider.connection,
+      admin,
+      tokenMint,
+      monthlyDonationWallet.publicKey,
+      false
+    );
+      let annualRewardAta = await getOrCreateAssociatedTokenAccount(
+      program.provider.connection,
+      admin,
+      tokenMint,
+      annualRewardWallet.publicKey,
+      false
+    );
+      let monthlyRewardAta = await getOrCreateAssociatedTokenAccount(
+      program.provider.connection,
+      admin,
+      tokenMint,
+      monthlyRewardWallet.publicKey,
+      false
+    );
+            let total = 1000e6; // 1000 tokens
+
+      await program.methods
+              .releaseFundsHandler(new anchor.BN(total))
+              .accounts({
+            configAccount: configAccount.publicKey,  
+             treasuryAuthority: treasuryAuthority.publicKey,
+             treasuryAta:treasuryAuthorityAta.address,
+             chaiFundsAta:chaiFundsAta.address,
+             annualDonationAta:annualDonationAta.address,
+
+             monthlyDonationAta:monthlyDonationAta.address,
+
+             annualRewardAta:annualRewardAta.address,
+             monthlyRewardAta:monthlyRewardAta.address,
+             stakingPoolAta:stakingPoolAta.address,
+             tokenProgram: TOKEN_PROGRAM_ID,
+              })
+              .signers([treasuryAuthority])
+              .rpc();
+      })
 
 
 });
