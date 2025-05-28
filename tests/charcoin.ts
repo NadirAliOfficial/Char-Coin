@@ -293,9 +293,52 @@ describe("char coin test", () => {
         .accounts({
        configAccount: configAccount.publicKey,  
           tokenProgram: TOKEN_PROGRAM_ID,
-          payer: admin.publicKey,
           destWallet1Ata:
           destWallet2Ata:
+          signer1: admin.publicKey,
+        })
+        .signers([admin])
+        .rpc();
+    
+     
+  });
+
+     it("release funds", async () => {
+        
+    const marketingWallet1Ata = await getOrCreateAssociatedTokenAccount(
+      program.provider.connection,
+      admin,
+      tokenMint,
+      marketingWallet2,
+      true
+    );
+
+    const  marketingWallet2Ata = await getOrCreateAssociatedTokenAccount(
+      program.provider.connection,
+      admin,
+      tokenMint,
+      marketingWallet1,
+      true
+    );
+
+    stakingPoolAta = await getOrCreateAssociatedTokenAccount(
+      program.provider.connection,
+      admin,
+      tokenMint,
+      stakingPool,
+      true
+    );
+      await program.methods
+        .releaseFundsHandler(1000e6)
+        .accounts({
+       configAccount: configAccount.publicKey,  
+          tokenProgram: TOKEN_PROGRAM_ID,
+          payer: admin.publicKey,
+          destWallet1Ata:,
+          destWallet2Ata:,
+          sourceAta:,
+          mint: tokenMint
+
         })
         .signers([admin])
         .rpc();

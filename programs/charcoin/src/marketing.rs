@@ -31,8 +31,10 @@ pub struct DistributeMarketingFunds<'info> {
     // #[account(signer)]
     // pub signer3: AccountInfo<'info>,
     /// CHECK: This is the source token account from which funds are withdrawn. Its validity is managed by the token program.
-    #[account(mut)]
-    pub source: AccountInfo<'info>,
+    #[account(mut,
+        constraint = source_ata.owner == config_account.config.treasury_authority// Ensure the owner matches the marketing wallet
+    )]
+    pub source_ata: Account<'info, TokenAccount>,
     /// Destination token account for Marketing Wallet 1 funds.
     #[account(
         mut,
@@ -84,7 +86,7 @@ pub fn distribute_marketing_funds(
     let transfer_ctx1 = CpiContext::new(
         ctx.accounts.token_program.to_account_info(),
         Transfer {
-            from: ctx.accounts.source.to_account_info(),
+            from: ctx.accounts.source_ata.to_account_info(),
             to: ctx.accounts.dest_wallet1_ata.to_account_info(),
             // For demonstration, use signer1; in production, use a multisig PDA.
             authority: ctx.accounts.signer1.to_account_info(),
@@ -95,7 +97,7 @@ pub fn distribute_marketing_funds(
     let transfer_ctx2 = CpiContext::new(
         ctx.accounts.token_program.to_account_info(),
         Transfer {
-            from: ctx.accounts.source.to_account_info(),
+            from: ctx.accounts.source_ata.to_account_info(),
             to: ctx.accounts.dest_wallet2_ata.to_account_info(),
             authority: ctx.accounts.signer1.to_account_info(),
         },
@@ -107,7 +109,7 @@ pub fn distribute_marketing_funds(
         ctx.accounts.token_program.to_account_info(),
         Burn {
             mint: ctx.accounts.mint.to_account_info(),
-            from: ctx.accounts.source.to_account_info(),
+            from: ctx.accounts.source_ata.to_account_info(),
             authority: ctx.accounts.signer1.to_account_info(),
         },
     );
