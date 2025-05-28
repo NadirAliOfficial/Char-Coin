@@ -504,7 +504,7 @@ treasuryAuthority.publicKey
   })
 
   it("finalizeProposal", async () => {
-    await sleep(9000); // Wait for proposal duration to pass
+    await sleep(10000); // Wait for proposal duration to pass
     const [proposalAccount] = anchor.web3.PublicKey.findProgramAddressSync(
       [Buffer.from('proposal'), user.publicKey.toBuffer(), new anchor.BN(0).toArrayLike(Buffer, "le", 8)],
       program.programId
@@ -521,30 +521,92 @@ treasuryAuthority.publicKey
   })
  
 
-// it("register Charity", async () => {
-//      let id =  1;
-//     let name =  "Water for All";
-//     let description =  "Water for underserved communities";
-//     let charityWallet =  wallet.publicKey.toBase58();
-//     let startTime =  Math.floor(Date.now() / 1000) ; 
-//     let endTime =  Math.floor(Date.now() / 1000) + 60;
-//   const tx = await program.methods
-//     .registerCharityHandler(
-//       new anchor.BN(0),
-//       name,
-//       description,
-//       new PublicKey(charityWallet),
-//       new anchor.BN(startTime),
-//       new anchor.BN(endTime)
-//     )
-//     .accounts({
-//       charity: charityKeypair.publicKey,
-//       registrar: registrarKeypair.publicKey,
-//       systemProgram: SystemProgram.programId,
-//     })
-//     .signers([registrarKeypair, charityKeypair])
-//     .rpc();
-// })
+it("register Charity", async () => {
+      let data = await program.account.configAccount.fetch(configAccount[0])
+
+    let name =  "Water for All";
+    let description =  "Water for underserved communities";
+    const [charityAccount] = anchor.web3.PublicKey.findProgramAddressSync(
+      [Buffer.from('charity'),data.config.nextCharityId.toArrayLike(Buffer, "le", 8)],
+      program.programId
+    );
+
+    let startTime =  Math.floor(Date.now() / 1000) ; 
+    let endTime =  Math.floor(Date.now() / 1000) + 9;
+    const charityWallet = anchor.web3.Keypair.generate()
+  const tx = await program.methods
+    .registerCharityHandler(
+      name,
+      description,
+      charityWallet.publicKey,
+      new anchor.BN(startTime),
+      new anchor.BN(endTime)
+    )
+    .accounts({
+      configAccount: configAccount,
+      charity: charityAccount,
+      registrar: user.publicKey,
+      systemProgram: anchor.web3.SystemProgram.programId,
+    })
+    .signers([user])
+    .rpc();
+})
+it("castVote", async () => {
+  try{
+    const [charityAccount] = anchor.web3.PublicKey.findProgramAddressSync(
+      [Buffer.from('charity'),new anchor.BN(0).toArrayLike(Buffer, "le", 8)],
+      program.programId
+    );
+        const [voteRecord] = anchor.web3.PublicKey.findProgramAddressSync(
+      [Buffer.from('vote'),charityAccount.toBuffer(), user.publicKey.toBuffer()], 
+      program.programId
+    );
+
+  const tx = await program.methods
+    .castVoteHandler(
+      new anchor.BN(500),//voteWeight
+    )
+    .accounts({
+      voteRecord:voteRecord,
+      voter: user.publicKey,
+      configAccount: configAccount,
+      charity: charityAccount,
+      user:userStakePDA,
+      stakingPool: stakingPool,
+      systemProgram: anchor.web3.SystemProgram.programId,
+    })
+    .signers([user])
+    .rpc();
+     } catch (e) {
+      if (e instanceof anchor.AnchorError) {
+        assert(e.message.includes("VotingNotEligible"))
+      } else {
+        assert(false);
+      }
+
+    }
+})
+
+
+
+
+it("finalize Charity", async () => {
+await sleep(10000); // Wait for charity voting duration to pass
+    const [charityAccount] = anchor.web3.PublicKey.findProgramAddressSync(
+      [Buffer.from('charity'),new anchor.BN(0).toArrayLike(Buffer, "le", 8)],
+      program.programId
+    );
+
+  const tx = await program.methods
+    .finalizeCharityVoteHandler()
+    .accounts({
+      configAccount: configAccount,
+      charity: charityAccount,
+      admin: user.publicKey,
+    })
+    .signers([user])
+    .rpc();
+})
 });
 
 

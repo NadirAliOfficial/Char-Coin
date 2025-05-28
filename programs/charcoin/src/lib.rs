@@ -221,14 +221,13 @@ pub mod charcoin {
     /// Registers a new charity for the donation ecosystem.
     pub fn register_charity_handler(
         ctx: Context<RegisterCharity>,
-        id: u64,
         name: String,
         description: String,
         wallet: Pubkey,
         start_time: i64,
         end_time: i64,
     ) -> Result<()> {
-        donation::register_charity(ctx, id, name, description, wallet, start_time, end_time)
+        donation::register_charity(ctx, name, description, wallet, start_time, end_time)
     }
 
     /// Casts or updates a vote for a charity.
@@ -298,7 +297,8 @@ pub struct Config {
     pub treasury_authority: Pubkey,
     /// emergency state that indicates if the contract is halted.
     pub halted: bool,
-    pub next_proposal_id:u64
+    pub next_proposal_id:u64,
+    pub next_charity_id:u64
 }
 
 /// Account that holds the global configuration.

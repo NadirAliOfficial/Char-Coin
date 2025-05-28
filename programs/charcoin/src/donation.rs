@@ -32,8 +32,8 @@ pub struct VoteRecord {
 pub enum CharityError {
     #[msg("Voting period is not active.")]
     VotingNotActive,
-    #[msg("Voting period has ended.")]
-    VotingEnded,
+    #[msg("Voting period has not ended.")]
+    VotingNotEnded,
     #[msg("Charity voting is already finalized.")]
     AlreadyFinalized,
     #[msg("Math error occurred.")]
@@ -47,7 +47,6 @@ pub enum CharityError {
 /// Registers a new charity for donation voting.
 pub fn register_charity(
     ctx: Context<RegisterCharity>,
-    id: u64,
     name: String,
     description: String,
     wallet: Pubkey,
@@ -55,7 +54,7 @@ pub fn register_charity(
     end_time: i64,
 ) -> Result<()> {
     let charity = &mut ctx.accounts.charity;
-    charity.id = id;
+    charity.id = ctx.accounts.config_account.config.next_charity_id;
     charity.name = name;
     charity.description = description;
     charity.wallet = wallet;
@@ -64,6 +63,7 @@ pub fn register_charity(
     charity.end_time = end_time;
     charity.status = CharityStatus::Active;
     msg!("Charity '{}' registered.", charity.name);
+    ctx.accounts.config_account.config.next_charity_id +=1;
     Ok(())
 }
 
@@ -145,7 +145,7 @@ pub fn cast_vote(ctx: Context<CastVote>, vote_weight: u64) -> Result<()> {
 pub fn finalize_charity_vote(ctx: Context<FinalizeCharityVote>) -> Result<()> {
     let clock = Clock::get()?.unix_timestamp;
     let charity = &mut ctx.accounts.charity;
-    require!(clock > charity.end_time, CharityError::VotingEnded);
+    require!(clock > charity.end_time, CharityError::VotingNotEnded);
     charity.status = CharityStatus::Finalized;
     msg!(
         "Charity '{}' finalized with {} total votes",
@@ -161,8 +161,9 @@ pub struct RegisterCharity<'info> {
             mut,
             seeds=[b"config".as_ref()],
             bump
-        )]    pub config_account: Account<'info, ConfigAccount>,
-    #[account(init, payer = registrar, space = 8 + 8 + 4 + 64 + 4 + 256 + 32 + 8 + 8 + 1)]
+        )]    
+        pub config_account: Account<'info, ConfigAccount>,
+    #[account(init, payer = registrar,seeds=[b"charity".as_ref(),config_account.config.next_charity_id.to_le_bytes().as_ref()],bump, space = 8 + 8 + 4 + 64 + 4 + 256 + 32 + 8 + 8 + 1)]
     pub charity: Account<'info, Charity>,
     #[account(mut)]
     pub registrar: Signer<'info>,
