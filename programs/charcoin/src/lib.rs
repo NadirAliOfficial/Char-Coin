@@ -10,6 +10,7 @@ pub mod rewards;
 pub mod security;
 pub mod staking;
 
+use anchor_spl::token::Mint;
 // Re-export public items
 pub use donation::*;
 pub use governance::*;
@@ -144,13 +145,12 @@ pub mod charcoin {
         ctx: Context<VoteOnProposal>,
         proposal_id: u64,
         vote_choice: bool,
-        amount_staked: u64,
     ) -> Result<()> {
           require!(
             ctx.accounts.config_account.config.halted == false,
             ErrorCode::ProgramIsHalted
         );
-        governance::vote_on_proposal(ctx, proposal_id, vote_choice, amount_staked)
+        governance::vote_on_proposal(ctx, proposal_id, vote_choice)
     }
 
     pub fn finalize_proposal_handler(ctx: Context<FinalizeProposal>) -> Result<()> {
@@ -298,6 +298,7 @@ pub struct Config {
     pub treasury_authority: Pubkey,
     /// emergency state that indicates if the contract is halted.
     pub halted: bool,
+    pub next_proposal_id:u64
 }
 
 /// Account that holds the global configuration.
@@ -311,9 +312,8 @@ pub struct ConfigAccount {
 pub struct Initialize<'info> {
     #[account(init, payer = user, space = 8 + std::mem::size_of::<ConfigAccount>())]
     pub config: Account<'info, ConfigAccount>,
-    /// CHECK: SPL Token mint account; its data is managed by the token program.
     #[account(mut)]
-    pub mint: UncheckedAccount<'info>,
+    pub mint: Account<'info, Mint>,
     #[account(mut)]
     pub user: Signer<'info>,
     pub system_program: Program<'info, System>,

@@ -40,6 +40,7 @@ pub fn submit_proposal(
     let current_time = Clock::get()?.unix_timestamp;
     let proposal = &mut ctx.accounts.proposal;
     proposal.creator = ctx.accounts.creator.key();
+    proposal.id = ctx.accounts.config_account.config.next_proposal_id;
     proposal.title = title;
     proposal.description = description;
     proposal.yes_votes = 0;
@@ -51,6 +52,7 @@ pub fn submit_proposal(
         proposal.title,
         proposal.creator
     );
+    ctx.accounts.config_account.config.next_proposal_id += 1;
     emit!(ProposalSubmittedEvent {
         proposal_creator: proposal.creator,
         proposal_title: proposal.title.clone(),
@@ -63,8 +65,8 @@ pub fn submit_proposal(
 pub fn vote_on_proposal(
     ctx: Context<VoteOnProposal>,
     proposal_id: u64,
-    vote_choice: bool,
-    amount_staked: u64,
+    vote_choice: bool
+
 ) -> Result<()> {
     let current_time = Clock::get()?.unix_timestamp;
     let proposal = &mut ctx.accounts.proposal;
@@ -73,6 +75,7 @@ pub fn vote_on_proposal(
         user.amount > 0,
         GovernanceError::NoStakedTokens
     );
+    let amount_staked = user.amount;
     require!(
         current_time - user.staked_at >= 15 * 86400,
         GovernanceError::VotingNotEligible
@@ -306,9 +309,8 @@ pub struct ApproveWithdrawal<'info> {
     pub treasury: Account<'info, Treasury>,
     #[account(mut)]
     pub withdrawal: Account<'info, WithdrawalProposal>,
-    /// CHECK: Authorized signer; no additional checks.
-    #[account(signer)]
-    pub signer: AccountInfo<'info>,
+    #[account(mut)]
+    pub signer: Signer<'info>,
 }
 
 #[derive(Accounts)]
@@ -328,7 +330,9 @@ pub struct ExecuteWithdrawal<'info> {
 pub struct SubmitProposal<'info> {
          #[account(mut)]
     pub config_account: Account<'info, ConfigAccount>,
-    #[account(init, payer = creator, space = 8 + 32 + 8 + 256 + 8 + 8 + 1 + 8)]
+    #[account(init, payer = creator, 
+        seeds=[b"proposal", creator.key().as_ref(),config_account.config.next_proposal_id.to_le_bytes().as_ref()],
+         bump, space = 8 + 32 + 8 + 256 + 8 + 8 + 1 + 8)]
     pub proposal: Account<'info, Proposal>,
     #[account(mut)]
     pub creator: Signer<'info>,
@@ -349,6 +353,7 @@ pub struct VoteOnProposal<'info> {
     )]
     pub user: Account<'info, UserStakeInfo>,
     pub staking_pool: Account<'info, StakingPool>,
+    pub system_program: Program<'info, System>,
 
 }
 

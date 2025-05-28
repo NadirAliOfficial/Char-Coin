@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 
-use crate::{ConfigAccount, StakingPool};
+use crate::{ConfigAccount};
 
 
 
