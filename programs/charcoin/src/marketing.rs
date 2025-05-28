@@ -21,7 +21,7 @@ pub struct DistributeMarketingFunds<'info> {
     /// CHECK: Approved multisig signer.
     #[account(
         mut,
-        constraint = config_account.config.admin == signer1.key() // Ensure the signer is the admin
+        constraint = config_account.config.treasury_authority == signer1.key() // Ensure the signer is the admin
     )]
     pub signer1: Signer<'info>,
     // /// CHECK: Approved multisig signer.
@@ -38,14 +38,14 @@ pub struct DistributeMarketingFunds<'info> {
     /// Destination token account for Marketing Wallet 1 funds.
     #[account(
         mut,
-        constraint = dest_wallet1_ata.owner == config_account.config.marketing_wallet_1 ,// Ensure the owner matches the marketing wallet1
+        constraint = dest_wallet1_ata.owner == config_account.config.marketing_wallet_1 ,// Ensure the owner matches the marketing wallet
 
     )]
     pub dest_wallet1_ata: Account<'info, TokenAccount>,
     /// Destination token  account for Marketing Wallet 2 funds.
     #[account(
         mut,
-        constraint = dest_wallet2_ata.owner == config_account.config.marketing_wallet_2,// Ensure the owner matches the marketing wallet2
+        constraint = dest_wallet2_ata.owner == config_account.config.marketing_wallet_2,// Ensure the owner matches the marketing wallet
     )]
     pub dest_wallet2_ata: Account<'info, TokenAccount>,
     #[account(mut)]

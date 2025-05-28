@@ -56,10 +56,7 @@ describe("char coin test", () => {
   );
     let marketingWallet1 = anchor.web3.Keypair.generate()
     let marketingWallet2 = anchor.web3.Keypair.generate()
-    let [treasuryAuthority,] = anchor.web3.PublicKey.findProgramAddressSync(
-    [Buffer.from('treasury_authority')],
-    program.programId
-  );
+    let treasuryAuthority= anchor.web3.Keypair.generate()
 
 
   let tokenMint
@@ -100,6 +97,7 @@ let treasuryAuthorityAta
       admin, // mint authority
       1_000_000_00000
     );
+  
 
     stakingPoolAta = await getOrCreateAssociatedTokenAccount(
       program.provider.connection,
@@ -133,10 +131,18 @@ let treasuryAuthorityAta
       program.provider.connection,
       admin,
       tokenMint,
-      treasuryAuthority,
-      true
+      treasuryAuthority.publicKey,
+      false
     );
 
+      await mintTo(
+      program.provider.connection,
+      admin, // fee payer
+      tokenMint,
+      treasuryAuthorityAta.address, // destination ATA
+      admin, // mint authority
+      1_000_000_00000
+    );
   })
   it("initialized", async () => {
     // Add your test here.
@@ -156,7 +162,7 @@ let treasuryAuthorityAta
       annualRewardWallet: annualRewardWallet,
       monthlyDonationWallet: monthlyDonationWallet,
       annualDonationWallet: annualDonationWallet,
-      treasuryAuthority: treasuryAuthority,
+      treasuryAuthority: treasuryAuthority.publicKey,
     };
     await program.methods.initialize(config)
       .accounts(context)
@@ -307,44 +313,73 @@ let treasuryAuthorityAta
   });
 
 
-     it("distribute marketing funds", async () => {
+     it("halt distribute marketing funds", async () => {
+      try{
       await program.methods
         .distributeMarketingFundsHandler(new anchor.BN(1000e6))
         .accounts({
       configAccount: configAccount.publicKey,  
-       signer1: admin.publicKey,
+       signer1: treasuryAuthority.publicKey,
        sourceAta:treasuryAuthorityAta.address,
        destWallet1Ata:marketingWallet1Ata.address,
        destWallet2Ata:marketingWallet2Ata.address,
        mint: tokenMint,
        tokenProgram: TOKEN_PROGRAM_ID,
         })
+        .signers([treasuryAuthority])
+        .rpc();
+     }catch (e) {
+       if (e instanceof anchor.AnchorError) {
+        assert(e.message.includes("ProgramIsHalted"))
+      } else {
+        assert(false);
+      }
+      }
+
+
+  await program.methods
+        .changeEmergencyStateHandler(false)
+        .accounts({
+       configAccount: configAccount.publicKey,  
+                 systemProgram: anchor.web3.SystemProgram.programId,
+                 payer: admin.publicKey,
+ 
+        })
         .signers([admin])
         .rpc();
-    
+
+
      
   });
+  it(" distribute marketing funds", async () => {
+    let total = 1000e6; // 1000 tokens
+        let amount_wallet1 = (total * 425) / 1000; // 42.5%
+    let amount_wallet2 = (total * 425) / 1000; // 42.5%
+    let amount_death = (total * 150) / 1000; // 15%
 
-  //    it("release funds", async () => {
-        
-  
-  //     await program.methods
-  //       .releaseFundsHandler(1000e6)
-  //       .accounts({
-  //      configAccount: configAccount.publicKey,  
-  //      payer: admin.publicKey,
-  //      destWallet1Ata:marketingWallet1Ata.address,
-  //      destWallet2Ata:marketingWallet2Ata.address,
-  //      sourceAta:treasuryAuthorityAta.address,
-  //      mint: tokenMint,
-  //      tokenProgram: TOKEN_PROGRAM_ID,
+        let balance = (await program.provider.connection.getTokenAccountBalance(marketingWallet1Ata.address))
+    assert.equal(balance.value.amount, "0");
+    balance = (await program.provider.connection.getTokenAccountBalance(marketingWallet2Ata.address))
+    assert.equal(balance.value.amount, "0");
+      await program.methods
+        .distributeMarketingFundsHandler(new anchor.BN(total))
+        .accounts({
+      configAccount: configAccount.publicKey,  
+       signer1: treasuryAuthority.publicKey,
+       sourceAta:treasuryAuthorityAta.address,
+       destWallet1Ata:marketingWallet1Ata.address,
+       destWallet2Ata:marketingWallet2Ata.address,
+       mint: tokenMint,
+       tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .signers([treasuryAuthority])
+        .rpc();
+      balance = (await program.provider.connection.getTokenAccountBalance(marketingWallet1Ata.address))
+    assert.equal(balance.value.amount, amount_wallet1.toString());
+      balance = (await program.provider.connection.getTokenAccountBalance(marketingWallet2Ata.address))
+    assert.equal(balance.value.amount, amount_wallet2.toString());
+      })
 
-  //       })
-  //       .signers([admin])
-  //       .rpc();
-    
-     
-  // });
 
 
 });
