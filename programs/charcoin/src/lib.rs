@@ -19,7 +19,7 @@ pub use rewards::*;
 pub use security::*;
 pub use staking::*;
 
-declare_id!("PCQhqxGio3xf8BpqGWwtzNLGVASYCCaPenkn1LEJoNJ");
+declare_id!("charvzwU4AjapDZc2NWgBgvAvYQmyYXFH5U7Zu8AQjh");
 
 #[program]
 pub mod charcoin {

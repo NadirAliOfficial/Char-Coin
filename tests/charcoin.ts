@@ -282,7 +282,6 @@ describe("char coin test", () => {
 
 
   it("Emergency halt", async () => {
-    console.log(configAccount)
     let data = await program.account.configAccount.fetch(configAccount[0])
     assert.equal(data.config.halted, false)
     await program.methods

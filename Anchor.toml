@@ -6,10 +6,10 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-gwim_staking_clean = "P62DXPtDL9S68D34mKJ1LNDLRuXSf4Cy63hi5aNVYjR"
+charcoin = "charvzwU4AjapDZc2NWgBgvAvYQmyYXFH5U7Zu8AQjh"
 
 [programs.devnet]
-gwim_staking_clean = "P62DXPtDL9S68D34mKJ1LNDLRuXSf4Cy63hi5aNVYjR"
+charcoin = "P62DXPtDL9S68D34mKJ1LNDLRuXSf4Cy63hi5aNVYjR"
 
 [registry]
 url = "https://api.apr.dev"
