@@ -30,10 +30,3 @@ pub fn change_emergency_state(
 }
 
 
-
-/// Account to track tokens burned.
-#[account]
-pub struct BurnTracker {
-    /// The total number of tokens burned.
-    pub total_burned: u64,
-}

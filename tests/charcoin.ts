@@ -43,6 +43,7 @@ describe("char coin test", () => {
   let chaiFunds = anchor.web3.Keypair.generate()
   let marketingWallet1 = anchor.web3.Keypair.generate()
   let marketingWallet2 = anchor.web3.Keypair.generate()
+  let deathWallet = anchor.web3.Keypair.generate()
   let treasuryAuthority = anchor.web3.Keypair.generate()
 
 
@@ -54,6 +55,7 @@ describe("char coin test", () => {
   let marketingWallet1Ata
   let marketingWallet2Ata
   let treasuryAuthorityAta
+  let deathWalletAta
   before(async () => {
     await airdropSol(admin.publicKey, 20 * 1e9); // 20 SOL
     await airdropSol(user.publicKey, 5 * 1e9);
@@ -113,6 +115,13 @@ describe("char coin test", () => {
       marketingWallet2.publicKey,
       false
     );
+    deathWalletAta = await getOrCreateAssociatedTokenAccount(
+      program.provider.connection,
+      admin,
+      tokenMint,
+      deathWallet.publicKey,
+      false
+    );
 
     treasuryAuthorityAta = await getOrCreateAssociatedTokenAccount(
       program.provider.connection,
@@ -149,6 +158,7 @@ describe("char coin test", () => {
       annualRewardWallet: annualRewardWallet.publicKey,
       monthlyDonationWallet: monthlyDonationWallet.publicKey,
       annualDonationWallet: annualDonationWallet.publicKey,
+      deathWallet: deathWallet.publicKey,
       treasuryAuthority: treasuryAuthority.publicKey,
     };
     await program.methods.initialize(config)
@@ -311,6 +321,7 @@ describe("char coin test", () => {
           destWallet1Ata: marketingWallet1Ata.address,
           destWallet2Ata: marketingWallet2Ata.address,
           tokenProgram: TOKEN_PROGRAM_ID,
+          deathWalletAta:deathWalletAta.address
         })
         .signers([treasuryAuthority])
         .rpc();
@@ -318,6 +329,7 @@ describe("char coin test", () => {
       if (e instanceof anchor.AnchorError) {
         assert(e.message.includes("ProgramIsHalted"))
       } else {
+        console.log(e)
         assert(false);
       }
     }
@@ -357,6 +369,8 @@ describe("char coin test", () => {
         destWallet1Ata: marketingWallet1Ata.address,
         destWallet2Ata: marketingWallet2Ata.address,
         tokenProgram: TOKEN_PROGRAM_ID,
+        deathWalletAta:deathWalletAta.address
+
       })
       .signers([treasuryAuthority])
       .rpc();
@@ -368,16 +382,15 @@ describe("char coin test", () => {
   it("buyback and burn",async()=>{
 
       await program.methods
-      .buybackBurnHandler(amount_death)
+      .buybackBurnHandler(new anchor.BN(1e6),new anchor.BN(1))
       .accounts({
         configAccount: configAccount,
-        signer1: treasuryAuthority.publicKey,
-        sourceAta: treasuryAuthorityAta.address,
-        destWallet1Ata: marketingWallet1Ata.address,
-        destWallet2Ata: marketingWallet2Ata.address,
+        mint:tokenMint,
+        burnWalletAta:deathWalletAta.address,
+        burnAuthority:deathWallet.publicKey,
         tokenProgram: TOKEN_PROGRAM_ID,
       })
-      .signers([treasuryAuthority])
+      .signers([deathWallet])
       .rpc();
   })
   it("distribute chai funds", async () => {

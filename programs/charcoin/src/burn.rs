@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::clock::Clock;
-use anchor_spl::token::{self, Burn, Token, Transfer};
-use crate::BurnTracker; 
+use anchor_spl::token::TokenAccount;
+use anchor_spl::token::{self, Burn, Token};
 use crate::ConfigAccount;
 use crate::ErrorCode;
 
@@ -16,18 +16,12 @@ pub struct ExecuteBuyback<'info> {
     /// CHECK: SPL Token mint account.
     #[account(mut)]
     pub mint: UncheckedAccount<'info>,
-    /// CHECK: Account holding tokens accumulated from fees.
-    #[account(mut)]
-    pub buyback_account: UncheckedAccount<'info>,
-    pub buyback_authority: Signer<'info>,
     /// CHECK: Burn wallet (a locked account).
     #[account(mut)]
-    pub burn_wallet: UncheckedAccount<'info>,
-    /// CHECK: Authority to burn tokens from the burn wallet (typically a PDA).
-    pub burn_authority: UncheckedAccount<'info>,
-    /// This account tracks total tokens burned.
-    #[account(mut)]
-    pub burn_tracker: Account<'info, BurnTracker>,
+    pub burn_wallet_ata: Account<'info,TokenAccount>,
+    /// CHECK: Authority to burn tokens from the burn wallet 
+    pub burn_authority: Signer<'info>,
+
     pub token_program: Program<'info, Token>,
 }
 
@@ -48,18 +42,15 @@ pub fn execute_buyback(
         ctx.accounts.token_program.to_account_info(),
         Burn {
             mint: ctx.accounts.mint.to_account_info(),
-            from: ctx.accounts.burn_wallet.to_account_info(),
+            from: ctx.accounts.burn_wallet_ata.to_account_info(),
             authority: ctx.accounts.burn_authority.to_account_info(),
         },
     );
     token::burn(burn_ctx, tokens_to_buy)?;
 
     // Update the burn tracker.
-    let tracker = &mut ctx.accounts.burn_tracker;
-    tracker.total_burned = tracker
-        .total_burned
-        .checked_add(tokens_to_buy)
-        .ok_or(ErrorCode::MathError)?;
+    let tracker = &mut ctx.accounts.config_account.config;
+    tracker.total_burned += tokens_to_buy;
 
     // Cache the current timestamp.
     let current_time = Clock::get()?.unix_timestamp;
