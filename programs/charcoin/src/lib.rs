@@ -130,7 +130,7 @@ pub mod charcoin {
 
     // Burning 
     pub fn buyback_burn_handler(
-        ctx: Context<ExecuteBuyback>,
+    ctx: Context<ExecuteBuyback>,
     fee_amount: u64,
     conversion_rate: u64,
     ) -> Result<()> {
@@ -138,7 +138,7 @@ pub mod charcoin {
             ctx.accounts.config_account.config.halted == false,
             ErrorCode::ProgramIsHalted
         );
-        burn::execute_buyback(ctx, fee_amount, conversion_rate);
+        burn::execute_buyback(ctx, fee_amount, conversion_rate)
     } 
     // Governance
     // Governance functions
@@ -297,6 +297,7 @@ pub struct Config {
     pub chai_funds: Pubkey,
     pub marketing_wallet_1: Pubkey,
     pub marketing_wallet_2: Pubkey,
+    pub death_wallet: Pubkey,
     pub treasury_authority: Pubkey,
     /// emergency state that indicates if the contract is halted.
     pub halted: bool,

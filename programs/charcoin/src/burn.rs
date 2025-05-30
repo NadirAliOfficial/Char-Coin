@@ -41,16 +41,7 @@ pub fn execute_buyback(
         .checked_mul(conversion_rate)
         .ok_or(ErrorCode::MathError)?;
 
-    // Transfer tokens from buyback_account to burn_wallet.
-    let transfer_ctx = CpiContext::new(
-        ctx.accounts.token_program.to_account_info(),
-        Transfer {
-            from: ctx.accounts.buyback_account.to_account_info(),
-            to: ctx.accounts.burn_wallet.to_account_info(),
-            authority: ctx.accounts.buyback_authority.to_account_info(),
-        },
-    );
-    token::transfer(transfer_ctx, tokens_to_buy)?;
+
 
     // Burn tokens from the burn_wallet.
     let burn_ctx = CpiContext::new(

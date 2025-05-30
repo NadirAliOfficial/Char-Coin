@@ -310,7 +310,6 @@ describe("char coin test", () => {
           sourceAta: treasuryAuthorityAta.address,
           destWallet1Ata: marketingWallet1Ata.address,
           destWallet2Ata: marketingWallet2Ata.address,
-          mint: tokenMint,
           tokenProgram: TOKEN_PROGRAM_ID,
         })
         .signers([treasuryAuthority])
@@ -348,7 +347,6 @@ describe("char coin test", () => {
     assert.equal(balance.value.amount, "0");
     balance = (await program.provider.connection.getTokenAccountBalance(marketingWallet2Ata.address))
     assert.equal(balance.value.amount, "0");
-    let totalSupply = (await program.provider.connection.getTokenSupply(tokenMint)).value.amount;
 
     await program.methods
       .distributeMarketingFundsHandler(new anchor.BN(total))
@@ -358,7 +356,6 @@ describe("char coin test", () => {
         sourceAta: treasuryAuthorityAta.address,
         destWallet1Ata: marketingWallet1Ata.address,
         destWallet2Ata: marketingWallet2Ata.address,
-        mint: tokenMint,
         tokenProgram: TOKEN_PROGRAM_ID,
       })
       .signers([treasuryAuthority])
@@ -367,8 +364,21 @@ describe("char coin test", () => {
     assert.equal(balance.value.amount, amount_wallet1.toString());
     balance = (await program.provider.connection.getTokenAccountBalance(marketingWallet2Ata.address))
     assert.equal(balance.value.amount, amount_wallet2.toString());
-    let totalSupplyAfter = (await program.provider.connection.getTokenSupply(tokenMint)).value.amount;
-    assert.equal(Number(totalSupplyAfter) + Number(amount_death), Number(totalSupply))
+  })
+  it("buyback and burn",async()=>{
+
+      await program.methods
+      .buybackBurnHandler(amount_death)
+      .accounts({
+        configAccount: configAccount,
+        signer1: treasuryAuthority.publicKey,
+        sourceAta: treasuryAuthorityAta.address,
+        destWallet1Ata: marketingWallet1Ata.address,
+        destWallet2Ata: marketingWallet2Ata.address,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .signers([treasuryAuthority])
+      .rpc();
   })
   it("distribute chai funds", async () => {
 

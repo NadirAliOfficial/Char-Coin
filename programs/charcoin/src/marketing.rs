@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::clock::Clock;
-use anchor_spl::token::{self, Burn, Mint, Token, TokenAccount, Transfer};
+use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 
 use crate::ConfigAccount;
 #[event]
@@ -51,6 +51,11 @@ pub struct DistributeMarketingFunds<'info> {
         constraint = dest_wallet2_ata.owner == config_account.config.marketing_wallet_2,// Ensure the owner matches the marketing wallet
     )]
     pub dest_wallet2_ata: Account<'info, TokenAccount>,
+    #[account(
+        mut,
+        constraint = death_wallet_ata.owner == config_account.config.death_wallet,// Ensure the owner matches the marketing wallet
+    )]
+    pub death_wallet_ata: Account<'info, TokenAccount>,
     pub token_program: Program<'info, Token>,
 }
 
@@ -106,7 +111,15 @@ pub fn distribute_marketing_funds(
     token::transfer(transfer_ctx2, amount_wallet2)?;
 
     // (Optionally, you might burn the death wallet funds via a separate burn function.)
-   
+    let transfer_death_wallet = CpiContext::new(
+        ctx.accounts.token_program.to_account_info(),
+        Transfer {
+            from: ctx.accounts.source_ata.to_account_info(),
+            to: ctx.accounts.death_wallet_ata.to_account_info(),
+            authority: ctx.accounts.signer1.to_account_info(),
+        },
+    );
+    token::transfer(transfer_death_wallet, amount_death)?;
 
     // Reset the wallet's total funds after distribution.
     // wallet.total_funds = 0;

@@ -31,7 +31,7 @@ pub fn stake_tokens(ctx: Context<Stake>, amount: u64, lockup: u64) -> Result<()>
     user.staked_at = clock.unix_timestamp;
     user.lockup = lockup;
     user.bump = ctx.bumps.user;
-    //staking_pool.total_staked += amount;
+    staking_pool.total_staked += amount;
     msg!("Staked {} tokens", amount);
     Ok(())
 }
@@ -97,29 +97,18 @@ pub fn unstake_tokens(ctx: Context<Unstake>) -> Result<()> {
     user.amount = 0;
     user.staked_at = 0;
     user.unstake_requested_at = 0;
-    //let staking_pool = &mut ctx.accounts.staking_pool;
-    // staking_pool.total_staked -= amount;
+    let staking_pool = &mut ctx.accounts.staking_pool;
+    staking_pool.total_staked -= amount_to_return;
 
     msg!("Unstaked {} tokens", amount_to_return);
     Ok(())
 }
 
-fn get_reward_percentage(lockup: u64) -> u64 {
-    if lockup == 30 {
-        return 100;
-    }
 
-    if lockup == 90 {
-        return 150;
-    }
-
-    if lockup == 180 {
-        return 200;
-    }
-    return 0;
-}
 
 pub fn claim_reward(ctx: Context<ClaimReward>) -> Result<()> {
+        let staking_pool = &mut ctx.accounts.staking_pool;
+
     let user = &mut ctx.accounts.user;
     require!(user.amount > 0, StakingError::NoStakedTokens);
     let clock = Clock::get()?;
@@ -132,10 +121,14 @@ pub fn claim_reward(ctx: Context<ClaimReward>) -> Result<()> {
         .try_into()
         .unwrap();
     let periods = staking_duration as u64 / min_staking_duration;
-    require!(periods > 0, StakingError::StakingPeriodNotMet);
-    let reward_percentage = get_reward_percentage(user.lockup);
-
-    let reward_amount = (periods * (user.amount as u64) * reward_percentage) / 100;
+    require!(periods > user.current_period, StakingError::StakingPeriodNotMet);
+    user.current_period += 1;
+    let reward_pool_balance = ctx.accounts.reward_token_account.amount; // total available rewards
+    let user_share = user.amount as u128 * 1_000_000 / staking_pool.total_staked as u128; // scaled user share
+    let reward_amount = (reward_pool_balance as u128 * user_share) / 1_000_000;
+    let reward_amount = reward_amount
+    .try_into()
+    .map_err(|_| error!(StakingError::RewardOverflow))?;
 
     // Create PDA signer seeds
     let pool_seeds = &[
@@ -359,6 +352,7 @@ pub struct UserStakeInfo {
     pub lockup: u64,
     pub unstake_requested_at: i64,
     pub bump: u8,
+    pub current_period:u64
 }
 
 
@@ -381,5 +375,7 @@ pub enum StakingError {
     RequestUnstakeFirst,
     #[msg("Unstake Already Requested")]
     UnstakeAlreadyRequested,
+    #[msg("Reward Overflow")]
+    RewardOverflow,
 }
 
