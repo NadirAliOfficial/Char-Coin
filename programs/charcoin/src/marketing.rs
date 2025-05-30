@@ -51,8 +51,6 @@ pub struct DistributeMarketingFunds<'info> {
         constraint = dest_wallet2_ata.owner == config_account.config.marketing_wallet_2,// Ensure the owner matches the marketing wallet
     )]
     pub dest_wallet2_ata: Account<'info, TokenAccount>,
-    #[account(mut)]
-    pub mint: Account<'info, Mint>,
     pub token_program: Program<'info, Token>,
 }
 
@@ -108,15 +106,7 @@ pub fn distribute_marketing_funds(
     token::transfer(transfer_ctx2, amount_wallet2)?;
 
     // (Optionally, you might burn the death wallet funds via a separate burn function.)
-    let burn_ctx = CpiContext::new(
-        ctx.accounts.token_program.to_account_info(),
-        Burn {
-            mint: ctx.accounts.mint.to_account_info(),
-            from: ctx.accounts.source_ata.to_account_info(),
-            authority: ctx.accounts.signer1.to_account_info(),
-        },
-    );
-    token::burn(burn_ctx, amount_death)?;
+   
 
     // Reset the wallet's total funds after distribution.
     // wallet.total_funds = 0;

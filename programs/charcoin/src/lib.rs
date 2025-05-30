@@ -3,6 +3,7 @@
 use anchor_lang::prelude::*;
 
 // Modules
+pub mod burn;
 pub mod donation;
 pub mod governance;
 pub mod marketing;
@@ -13,6 +14,7 @@ pub mod staking;
 use anchor_spl::token::Mint;
 // Re-export public items
 pub use donation::*;
+pub use burn::*;
 pub use governance::*;
 pub use marketing::*;
 pub use rewards::*;
@@ -126,6 +128,18 @@ pub mod charcoin {
         staking::claim_reward(ctx)
     }
 
+    // Burning 
+    pub fn buyback_burn_handler(
+        ctx: Context<ExecuteBuyback>,
+    fee_amount: u64,
+    conversion_rate: u64,
+    ) -> Result<()> {
+          require!(
+            ctx.accounts.config_account.config.halted == false,
+            ErrorCode::ProgramIsHalted
+        );
+        burn::execute_buyback(ctx, fee_amount, conversion_rate);
+    } 
     // Governance
     // Governance functions
     pub fn submit_proposal_handler(
