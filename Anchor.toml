@@ -6,7 +6,7 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-charcoin = "charvzwU4AjapDZc2NWgBgvAvYQmyYXFH5U7Zu8AQjh"
+charcoin = "keyk1FHhXGs82vJ2qecM8Rc96PXVvArVtNfoC8xEyKN"
 
 [programs.devnet]
 charcoin = "P62DXPtDL9S68D34mKJ1LNDLRuXSf4Cy63hi5aNVYjR"
@@ -16,7 +16,7 @@ url = "https://api.apr.dev"
 
 [provider]
 cluster = "localnet"  
-wallet = "/Users/asad97/.config/solana/id.json"
+wallet = "~/.config/solana/id.json"
 
 [scripts]
 test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"

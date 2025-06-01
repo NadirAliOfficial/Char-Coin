@@ -59,18 +59,7 @@ pub struct DistributeMarketingFunds<'info> {
     pub token_program: Program<'info, Token>,
 }
 
-#[derive(Accounts)]
-pub struct InitializeMarketingWallet<'info> {
-    /// The marketing wallet that tracks allocated funds.
-    #[account(mut)]
-    pub config_account: Account<'info, ConfigAccount>,
 
-    #[account(
-        mut,
-        constraint = config_account.config.admin == signer1.key() // Ensure the signer is the admin
-    )]
-    pub signer1: Signer<'info>,
-}
 
 /// Distribute marketing funds according to the following split:
 /// - Marketing Wallet 1: 42.5%
@@ -141,13 +130,4 @@ pub fn distribute_marketing_funds(
     Ok(())
 }
 
-pub fn change_marketing_wallet(
-    ctx: Context<InitializeMarketingWallet>,
-    marketing_wallet_1: Pubkey,
-    marketing_wallet_2: Pubkey,
-) -> Result<()> {
-    let config_account = &mut ctx.accounts.config_account;
-    config_account.config.marketing_wallet_1 = marketing_wallet_1;
-    config_account.config.marketing_wallet_2 = marketing_wallet_2;
-    Ok(())
-}
+

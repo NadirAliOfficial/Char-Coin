@@ -21,7 +21,7 @@ pub struct ReleaseMonthlyFunds<'info> {
     pub treasury_ata: Account<'info, TokenAccount>,
     /// CHECK: Destination token account for staking rewards (15%).
     #[account(mut)]
-    pub staking_pool_ata: Account<'info, TokenAccount>,
+    pub staking_reward_ata: Account<'info, TokenAccount>,
     /// CHECK: Destination token account for monthly rewards (7.5%).
     #[account(mut,
     constraint = monthly_reward_ata.owner == config_account.config.monthly_reward_wallet,
@@ -133,7 +133,7 @@ pub fn release_funds(ctx: Context<ReleaseMonthlyFunds>, total_amount: u64) -> Re
             ctx.accounts.token_program.to_account_info(),
             Transfer {
                 from: ctx.accounts.treasury_ata.to_account_info(),
-                to: ctx.accounts.staking_pool_ata.to_account_info(),
+                to: ctx.accounts.staking_reward_ata.to_account_info(),
                 authority: ctx.accounts.treasury_authority.to_account_info(),
             },
         ),

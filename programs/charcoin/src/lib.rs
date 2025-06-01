@@ -21,7 +21,7 @@ pub use rewards::*;
 pub use security::*;
 pub use staking::*;
 
-declare_id!("charvzwU4AjapDZc2NWgBgvAvYQmyYXFH5U7Zu8AQjh");
+declare_id!("keyk1FHhXGs82vJ2qecM8Rc96PXVvArVtNfoC8xEyKN");
 
 #[program]
 pub mod charcoin {
@@ -74,6 +74,11 @@ pub mod charcoin {
             ErrorCode::InvalidConfiguration
         );
 
+        require!(
+            config_account.config.death_wallet != Pubkey::default(),
+            ErrorCode::InvalidConfiguration
+        );
+
 
 
         msg!("CHAR Coin initialized with donation wallets configured");
@@ -87,6 +92,13 @@ pub mod charcoin {
         staking_pool.pool_token_account = ctx.accounts.pool_token_account.key();
         staking_pool.bump = ctx.bumps.staking_pool;
         Ok(())
+    }
+    pub fn initialize_treasury_handler(
+        ctx: Context<InitializeTreasury>,
+        owners: Vec<Pubkey>,
+        threshold: u8,
+    ) -> Result<()> {
+        governance::initialize_treasury(ctx, owners, threshold)
     }
 
     // Staking
@@ -175,13 +187,7 @@ pub mod charcoin {
         governance::finalize_proposal(ctx)
     }
 
-    pub fn initialize_treasury_handler(
-        ctx: Context<InitializeTreasury>,
-        owners: Vec<Pubkey>,
-        threshold: u8,
-    ) -> Result<()> {
-        governance::initialize_treasury(ctx, owners, threshold)
-    }
+
 
     pub fn create_withdrawal_handler(
         ctx: Context<CreateWithdrawal>,
@@ -275,13 +281,7 @@ pub mod charcoin {
         );
         marketing::distribute_marketing_funds(ctx, total_amount)
     }
-    pub fn change_marketing_wallet_handler(
-        ctx: Context<InitializeMarketingWallet>,
-        marketing_wallet_1: Pubkey,
-        marketing_wallet_2: Pubkey,
-    ) -> Result<()> {
-        marketing::change_marketing_wallet(ctx, marketing_wallet_1, marketing_wallet_2)
-    }
+  
 }
 
 /// Stores global configuration for CHAR Coin.
@@ -298,7 +298,7 @@ pub struct Config {
     pub marketing_wallet_1: Pubkey,
     pub marketing_wallet_2: Pubkey,
     pub death_wallet: Pubkey,
-    pub treasury_authority: Pubkey,
+    pub treasury_authority: Pubkey, // fee 
     /// emergency state that indicates if the contract is halted.
     pub halted: bool,
     pub next_proposal_id:u64,

@@ -123,7 +123,7 @@ pub fn claim_reward(ctx: Context<ClaimReward>) -> Result<()> {
     let periods = staking_duration as u64 / min_staking_duration;
     require!(periods > user.current_period, StakingError::StakingPeriodNotMet);
     user.current_period += 1;
-    let reward_pool_balance = ctx.accounts.reward_token_account.amount; // total available rewards
+    let reward_pool_balance = ctx.accounts.staking_reward_ata.amount; // total available rewards
     let user_share = user.amount as u128 * 1_000_000 / staking_pool.total_staked as u128; // scaled user share
     let reward_amount = (reward_pool_balance as u128 * user_share) / 1_000_000;
     let reward_amount = reward_amount
@@ -139,7 +139,7 @@ pub fn claim_reward(ctx: Context<ClaimReward>) -> Result<()> {
     let signer = &[&pool_seeds[..]];
     // Transfer reward tokens to user
     let cpi_accounts = Transfer {
-        from: ctx.accounts.reward_token_account.to_account_info(),
+        from: ctx.accounts.staking_reward_ata.to_account_info(),
         to: ctx.accounts.user_token_account.to_account_info(),
         authority: ctx.accounts.staking_pool.to_account_info(),
     };
@@ -324,9 +324,9 @@ pub struct ClaimReward<'info> {
 
     #[account(
         mut,
-        constraint = reward_token_account.mint == staking_pool.token_mint
+        constraint = staking_reward_ata.mint == staking_pool.token_mint
     )]
-    pub reward_token_account: Account<'info, TokenAccount>,
+    pub staking_reward_ata: Account<'info, TokenAccount>,
 
     pub token_program: Program<'info, Token>,
 }

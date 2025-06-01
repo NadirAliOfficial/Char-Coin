@@ -1,25 +1,23 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::clock::Clock;
-use anchor_spl::token::TokenAccount;
+use anchor_spl::token::{Mint, TokenAccount};
 use anchor_spl::token::{self, Burn, Token};
 use crate::ConfigAccount;
 use crate::ErrorCode;
 
 #[derive(Accounts)]
 pub struct ExecuteBuyback<'info> {
-      #[account(
-            mut,
-            seeds=[b"config".as_ref()],
-            bump
-        )]    
-        pub config_account: Account<'info, ConfigAccount>,
-    /// CHECK: SPL Token mint account.
+    #[account(
+        mut,
+        seeds=[b"config".as_ref()],
+        bump
+      )]    
+    pub config_account: Account<'info, ConfigAccount>,
     #[account(mut)]
-    pub mint: UncheckedAccount<'info>,
-    /// CHECK: Burn wallet (a locked account).
+    pub mint: Account<'info, Mint>,
     #[account(mut)]
     pub burn_wallet_ata: Account<'info,TokenAccount>,
-    /// CHECK: Authority to burn tokens from the burn wallet 
+    #[account(mut)]
     pub burn_authority: Signer<'info>,
 
     pub token_program: Program<'info, Token>,

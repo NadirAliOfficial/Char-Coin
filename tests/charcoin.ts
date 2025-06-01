@@ -276,7 +276,7 @@ describe("char coin test", () => {
           user: userStakePDA,
           userAuthority: user.publicKey,
           userTokenAccount: userAta.address,
-          rewardTokenAccount: stakingPoolAta.address,
+          stakingRewardAta: stakingPoolAta.address,
           tokenProgram: TOKEN_PROGRAM_ID,
         })
         .signers([user])
@@ -393,7 +393,7 @@ describe("char coin test", () => {
       .signers([deathWallet])
       .rpc();
   })
-  it("distribute chai funds", async () => {
+  it("release Funds", async () => {
 
 
     let chaiFundsAta = await getOrCreateAssociatedTokenAccount(
@@ -445,7 +445,7 @@ describe("char coin test", () => {
         monthlyDonationAta: monthlyDonationAta.address,
         annualRewardAta: annualRewardAta.address,
         monthlyRewardAta: monthlyRewardAta.address,
-        stakingPoolAta: stakingPoolAta.address,
+        stakingRewardAta: stakingPoolAta.address,
         tokenProgram: TOKEN_PROGRAM_ID,
       })
       .signers([treasuryAuthority])
