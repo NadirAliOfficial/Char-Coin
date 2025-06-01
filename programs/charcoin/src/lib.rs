@@ -237,6 +237,10 @@ pub mod charcoin {
         start_time: i64,
         end_time: i64,
     ) -> Result<()> {
+          require!(
+            ctx.accounts.config_account.config.halted == false,
+            ErrorCode::ProgramIsHalted
+        );
         donation::register_charity(ctx, name, description, wallet, start_time, end_time)
     }
 

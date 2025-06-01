@@ -8,11 +8,15 @@ pub fn stake_tokens(ctx: Context<Stake>, amount: u64, lockup: u64) -> Result<()>
     let staking_pool = &mut ctx.accounts.staking_pool;
     let user = &mut ctx.accounts.user;
 
+    // require!(
+    //     lockup == 30 || lockup == 90 || lockup == 180,
+    //     StakingError::WrongStakingPackage
+    // );
     require!(
-        lockup == 30 || lockup == 90 || lockup == 180,
+        lockup == 1 || lockup == 2 || lockup == 3,
         StakingError::WrongStakingPackage
     );
-    //require!(user.amount != 0, StakingError::AlreadyStaked);
+    // require!(user.amount == 0, StakingError::AlreadyStaked);
     let clock = Clock::get()?;
     // Transfer tokens from user to pool
     let cpi_accounts = Transfer {
@@ -59,7 +63,8 @@ pub fn unstake_tokens(ctx: Context<Unstake>) -> Result<()> {
     
     require!(user.unstake_requested_at != 0, StakingError::RequestUnstakeFirst);
    
-    require!(clock.unix_timestamp >= user.unstake_requested_at + 172800,StakingError::WaitFor48Hours); // 48 hours in seconds
+    // require!(clock.unix_timestamp >= user.unstake_requested_at + 172800 ,StakingError::WaitFor48Hours); // 48 hours in seconds
+    require!(clock.unix_timestamp >= user.unstake_requested_at + 180 ,StakingError::WaitFor48Hours); // 48 hours in seconds
   
 
     // Check if user has staked tokens
@@ -123,10 +128,10 @@ pub fn claim_reward(ctx: Context<ClaimReward>) -> Result<()> {
         .unwrap();
     let periods = staking_duration as u64 / min_staking_duration;
     require!(periods > user.current_period, StakingError::StakingPeriodNotMet);
-    user.current_period += 1;
+    user.current_period += periods;
     let reward_pool_balance = ctx.accounts.staking_reward_ata.amount; // total available rewards
     let user_share = user.amount as u128 * 1_000_000 / staking_pool.total_staked as u128; // scaled user share
-    let reward_amount = (reward_pool_balance as u128 * user_share) / 1_000_000;
+    let reward_amount = ((reward_pool_balance as u128 * user_share) * periods as u128 )/ 1_000_000;
     let reward_amount = reward_amount
     .try_into()
     .map_err(|_| error!(StakingError::RewardOverflow))?;
