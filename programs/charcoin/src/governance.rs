@@ -305,7 +305,10 @@ pub struct CreateWithdrawal<'info> {
     pub treasury: Account<'info, Treasury>,
     #[account(init, payer = signer, seeds=[b"withdrawal".as_ref()],bump,space = 8 + 8 + 32 + (32 * 10) + 1)]
     pub withdrawal: Account<'info, WithdrawalProposal>,
-    #[account(mut)]
+    #[account(mut,
+            constraint = signer.key() == config_account.config.admin,
+
+    )]
     pub signer: Signer<'info>,
     pub system_program: Program<'info, System>,
 }
