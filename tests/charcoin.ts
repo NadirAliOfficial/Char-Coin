@@ -29,6 +29,8 @@ describe("char coin test", () => {
       program.programId
     );
 
+    
+
 
   // Derive monthly reward wallet PDA
   let monthlyRewardWallet = anchor.web3.Keypair.generate()
@@ -56,6 +58,8 @@ describe("char coin test", () => {
   let marketingWallet2Ata
   let treasuryAuthorityAta
   let deathWalletAta
+  let stakingRewardAccount;
+  let stakingRewardAta;
   before(async () => {
     await airdropSol(admin.publicKey, 20 * 1e9); // 20 SOL
     await airdropSol(user.publicKey, 5 * 1e9);
@@ -70,6 +74,11 @@ describe("char coin test", () => {
 
     [stakingPool] = anchor.web3.PublicKey.findProgramAddressSync(
       [Buffer.from('staking_pool'), tokenMint.toBuffer()],
+      program.programId
+    );
+
+      [stakingRewardAccount] =  anchor.web3.PublicKey.findProgramAddressSync(
+      [Buffer.from('staking_reward'),stakingPool.toBuffer()],
       program.programId
     );
     userAta = await getOrCreateAssociatedTokenAccount(
@@ -93,6 +102,13 @@ describe("char coin test", () => {
       admin,
       tokenMint,
       stakingPool,
+      true
+    );
+      stakingRewardAta = await getOrCreateAssociatedTokenAccount(
+      program.provider.connection,
+      admin,
+      tokenMint,
+      stakingRewardAccount,
       true
     );
     [userStakePDA] = anchor.web3.PublicKey.findProgramAddressSync(
@@ -170,6 +186,7 @@ describe("char coin test", () => {
       .stakingInitialize()
       .accounts({
         stakingPool: stakingPool,
+        stakingRewardAccount:stakingRewardAccount,
         authority: admin.publicKey,
         tokenMint: tokenMint,
         poolTokenAccount: stakingPoolAta.address,
@@ -276,7 +293,7 @@ describe("char coin test", () => {
           user: userStakePDA,
           userAuthority: user.publicKey,
           userTokenAccount: userAta.address,
-          stakingRewardAta: stakingPoolAta.address,
+          stakingRewardAta: stakingRewardAta.address,
           tokenProgram: TOKEN_PROGRAM_ID,
         })
         .signers([user])
@@ -438,6 +455,7 @@ describe("char coin test", () => {
       .releaseFundsHandler(new anchor.BN(total))
       .accounts({
         configAccount: configAccount,
+        stakingPool:stakingPool,
         treasuryAuthority: treasuryAuthority.publicKey,
         treasuryAta: treasuryAuthorityAta.address,
         chaiFundsAta: chaiFundsAta.address,
@@ -445,7 +463,7 @@ describe("char coin test", () => {
         monthlyDonationAta: monthlyDonationAta.address,
         annualRewardAta: annualRewardAta.address,
         monthlyRewardAta: monthlyRewardAta.address,
-        stakingRewardAta: stakingPoolAta.address,
+        stakingRewardAta: stakingRewardAta.address,
         tokenProgram: TOKEN_PROGRAM_ID,
       })
       .signers([treasuryAuthority])

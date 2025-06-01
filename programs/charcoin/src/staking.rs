@@ -32,6 +32,7 @@ pub fn stake_tokens(ctx: Context<Stake>, amount: u64, lockup: u64) -> Result<()>
     user.lockup = lockup;
     user.bump = ctx.bumps.user;
     staking_pool.total_staked += amount;
+
     msg!("Staked {} tokens", amount);
     Ok(())
 }
@@ -165,6 +166,14 @@ pub struct StakeInitialize<'info> {
         bump
     )]
     pub staking_pool: Account<'info, StakingPool>,
+    #[account(
+        init,
+        payer = authority,
+        space = 8,
+        seeds = [b"staking_reward".as_ref(),staking_pool.key().as_ref()],
+        bump
+    )]
+    pub staking_reward: Account<'info, StakingRewards>,
 
     #[account(mut)]
     pub authority: Signer<'info>,
@@ -324,7 +333,7 @@ pub struct ClaimReward<'info> {
 
     #[account(
         mut,
-        constraint = staking_reward_ata.mint == staking_pool.token_mint
+        constraint = staking_reward_ata.owner == staking_pool.staking_reward_account
     )]
     pub staking_reward_ata: Account<'info, TokenAccount>,
 
@@ -336,12 +345,15 @@ pub struct StakingPool {
     pub authority: Pubkey,
     pub token_mint: Pubkey,
     pub pool_token_account: Pubkey,
+    pub staking_reward_account: Pubkey,
     pub total_staked: u64,
     pub reward_issued: i64,
     pub bump: u8,
 }
 
-
+#[account]
+pub struct StakingRewards {
+}
 
 #[account]
 pub struct UserStakeInfo {

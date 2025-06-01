@@ -90,6 +90,7 @@ pub mod charcoin {
         staking_pool.authority = ctx.accounts.authority.key();
         staking_pool.token_mint = ctx.accounts.token_mint.key();
         staking_pool.pool_token_account = ctx.accounts.pool_token_account.key();
+        staking_pool.staking_reward_account = ctx.accounts.staking_reward.key();
         staking_pool.bump = ctx.bumps.staking_pool;
         Ok(())
     }

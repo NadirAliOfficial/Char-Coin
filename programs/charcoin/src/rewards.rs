@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 
-use crate::{ConfigAccount};
+use crate::{ConfigAccount, StakingPool};
 
 
 
@@ -13,14 +13,20 @@ pub struct ReleaseMonthlyFunds<'info> {
             bump
         )]
     pub config_account: Account<'info, ConfigAccount>,
-
+ #[account(
+        seeds = [b"staking_pool".as_ref(), staking_pool.token_mint.as_ref()],
+        bump = staking_pool.bump,
+    )]
+    pub staking_pool: Account<'info, StakingPool>,
     /// CHECK: Treasury token account holding funds to be distributed.
     #[account(mut,
     constraint = treasury_ata.owner == config_account.config.treasury_authority,
     )]
     pub treasury_ata: Account<'info, TokenAccount>,
     /// CHECK: Destination token account for staking rewards (15%).
-    #[account(mut)]
+    #[account(mut,
+            constraint = staking_reward_ata.owner == staking_pool.staking_reward_account
+    )]
     pub staking_reward_ata: Account<'info, TokenAccount>,
     /// CHECK: Destination token account for monthly rewards (7.5%).
     #[account(mut,
