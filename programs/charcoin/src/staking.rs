@@ -155,6 +155,7 @@ pub fn claim_reward(ctx: Context<ClaimReward>) -> Result<()> {
     token::transfer(cpi_ctx, reward_amount)?;
 
     ctx.accounts.staking_pool.reward_issued += reward_amount as i64;
+    ctx.accounts.user.reward_issued += reward_amount as i64;
     msg!("Claimed reward of {} tokens", reward_amount);
     Ok(())
 }
@@ -365,6 +366,7 @@ pub struct UserStakeInfo {
     pub authority: Pubkey,
     pub staking_pool: Pubkey,
     pub amount: u64,
+    pub reward_issued: i64,
     pub staked_at: i64,
     pub lockup: u64,
     pub unstake_requested_at: i64,
