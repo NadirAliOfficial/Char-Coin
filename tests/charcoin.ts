@@ -267,7 +267,7 @@ describe("char coin test", () => {
           userAuthority: user.publicKey,
           userTokenAccount: userAta.address,
           poolTokenAccount: stakingPoolAta.address,
-
+          stakingRewardAta:stakingRewardAta.address,
           systemProgram: anchor.web3.SystemProgram.programId,
           tokenProgram: TOKEN_PROGRAM_ID,
         })

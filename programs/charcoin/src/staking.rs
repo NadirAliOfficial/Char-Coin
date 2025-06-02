@@ -64,7 +64,7 @@ pub fn unstake_tokens(ctx: Context<Unstake>) -> Result<()> {
     require!(user.unstake_requested_at != 0, StakingError::RequestUnstakeFirst);
    
     // require!(clock.unix_timestamp >= user.unstake_requested_at + 172800 ,StakingError::WaitFor48Hours); // 48 hours in seconds
-    require!(clock.unix_timestamp >= user.unstake_requested_at + 180 ,StakingError::WaitFor48Hours); // 48 hours in seconds
+    require!(clock.unix_timestamp >= user.unstake_requested_at + 180 ,StakingError::WaitFor48Hours); // 3 mint in seconds
   
 
     // Check if user has staked tokens
@@ -99,6 +99,21 @@ pub fn unstake_tokens(ctx: Context<Unstake>) -> Result<()> {
     let cpi_program = ctx.accounts.token_program.to_account_info();
     let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
     token::transfer(cpi_ctx, amount_to_return)?;
+
+    // send penalty fee to staking reward account ata
+    if fee != 0 {
+       let cpi_accounts = Transfer {
+            from: ctx.accounts.pool_token_account.to_account_info(),
+            to: ctx.accounts.staking_reward_ata.to_account_info(),
+            authority: staking_pool.to_account_info(),
+        };
+
+        let cpi_program = ctx.accounts.token_program.to_account_info();
+        let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
+        token::transfer(cpi_ctx, fee)?;
+    }
+
+
     // let amount = user.amount;
     user.amount = 0;
     user.staked_at = 0;
@@ -256,7 +271,11 @@ pub struct Unstake<'info> {
 
     #[account(mut)]
     pub user_authority: Signer<'info>,
-
+    #[account(
+        mut,
+        constraint = staking_reward_ata.owner == staking_pool.staking_reward_account
+    )]
+    pub staking_reward_ata: Account<'info, TokenAccount>,
     #[account(
         mut,
         constraint = user_token_account.mint == staking_pool.token_mint,
