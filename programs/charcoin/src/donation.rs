@@ -19,6 +19,7 @@ pub struct Charity {
     pub start_time: i64,     // Voting start time (unix timestamp)
     pub end_time: i64,       // Voting end time (unix timestamp)
     pub status: CharityStatus,
+    pub admin:Pubkey, // Admin's public key for managing the charity
 }
 
 #[account]
@@ -62,6 +63,7 @@ pub fn register_charity(
     charity.start_time = start_time;
     charity.end_time = end_time;
     charity.status = CharityStatus::Active;
+    charity.admin = ctx.accounts.registrar.key();
     msg!("Charity '{}' registered.", charity.name);
     ctx.accounts.config_account.config.next_charity_id +=1;
     Ok(())
@@ -73,7 +75,7 @@ pub fn cast_vote(ctx: Context<CastVote>, vote_weight: u64) -> Result<()> {
     let clock = Clock::get()?.unix_timestamp;
     let user = &ctx.accounts.user;
     require!(
-        user.amount > 0,
+        user.total_amount > 0,
         CharityError::NoStakedTokens
     );
     // require!(
@@ -81,7 +83,7 @@ pub fn cast_vote(ctx: Context<CastVote>, vote_weight: u64) -> Result<()> {
     //     CharityError::VotingNotEligible
     // );
     require!(
-        clock - user.staked_at >= 240, // 4 mints
+        clock - user.first_staked_at >= 240, // 4 mints
         CharityError::VotingNotEligible
     );
     let charity = &mut ctx.accounts.charity;
@@ -214,6 +216,8 @@ pub struct FinalizeCharityVote<'info> {
         )]    pub config_account: Account<'info, ConfigAccount>,
     #[account(mut)]
     pub charity: Account<'info, Charity>,
-    #[account(mut)]
+    #[account(mut,
+    constraint = admin.key() == charity.admin 
+)]
     pub admin: Signer<'info>,
 }

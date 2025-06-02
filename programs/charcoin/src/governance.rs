@@ -72,16 +72,16 @@ pub fn vote_on_proposal(
     let proposal = &mut ctx.accounts.proposal;
     let user = &ctx.accounts.user;
     require!(
-        user.amount > 0,
+        user.total_amount > 0,
         GovernanceError::NoStakedTokens
     );
-    let amount_staked = user.amount;
+    let amount_staked = user.total_amount;
     // require!(
     //     current_time - user.staked_at >= 15 * 86400,
     //     GovernanceError::VotingNotEligible
     // );
      require!(
-        current_time - user.staked_at >= 240, // 4 mints
+        current_time - user.first_staked_at >= 240, // 4 mints
         GovernanceError::VotingNotEligible
     );
     require!(

@@ -203,7 +203,12 @@ describe("char coin test", () => {
 
 
   it("stake", async () => {
+        let config_data = await program.account.configAccount.fetch(configAccount[0])
 
+ const [userStake] = anchor.web3.PublicKey.findProgramAddressSync(
+      [Buffer.from('user_stake'), stakingPool.toBuffer(), user.publicKey.toBuffer(),config_data.config.nextStakingId.toArrayLike(Buffer, "le", 8)],
+      program.programId
+    );
     await program.methods
       .stakeTokensHandler(
         new anchor.BN(10e6), // 10 tokens
@@ -215,6 +220,7 @@ describe("char coin test", () => {
 
         stakingPool: stakingPool,
         user: userStakePDA,
+        userStake:userStake,
         userAuthority: user.publicKey,
         userTokenAccount: userAta.address,
         poolTokenAccount: stakingPoolAta.address,
@@ -225,10 +231,11 @@ describe("char coin test", () => {
       .rpc();
 
     const data = await program.account.userStakeInfo.fetch(userStakePDA)
+    const stake_data = await program.account.userStakes.fetch(userStake)
 
-    assert.equal(10e6, Number(data.amount));
+    assert.equal(10e6, Number(data.totalAmount));
     // assert.equal(30, Number(data.lockup));
-    assert.equal(1, Number(data.lockup));
+    assert.equal(1, Number(stake_data.lockup));
 
   });
 
@@ -236,21 +243,25 @@ describe("char coin test", () => {
 
   it("request unstake", async () => {
 
-
+const [userStake] = anchor.web3.PublicKey.findProgramAddressSync(
+      [Buffer.from('user_stake'), stakingPool.toBuffer(), user.publicKey.toBuffer(),new anchor.BN(0).toArrayLike(Buffer, "le", 8)],
+      program.programId
+    );
     const now = Math.floor(Date.now() / 1000);
     await sleep(2000)
     await program.methods
-      .requestUnstakeHandler()
+      .requestUnstakeHandler(new anchor.BN(0)) // stake id
       .accounts({
         configAccount: configAccount,
         stakingPool: stakingPool,
         user: userStakePDA,
+        userStake:userStake,
         userAuthority: user.publicKey,
       })
       .signers([user])
       .rpc();
 
-    const data = await program.account.userStakeInfo.fetch(userStakePDA)
+    const data = await program.account.userStakes.fetch(userStake)
     assert.isAbove(Number(data.unstakeRequestedAt), now)
 
   });
@@ -258,11 +269,17 @@ describe("char coin test", () => {
 
   it("unstake", async () => {
     try {
+      const [userStake] = anchor.web3.PublicKey.findProgramAddressSync(
+      [Buffer.from('user_stake'), stakingPool.toBuffer(), user.publicKey.toBuffer(),new anchor.BN(0).toArrayLike(Buffer, "le", 8)],
+      program.programId
+    );
       await program.methods
-        .unstakeTokensHandler()
+        .unstakeTokensHandler(new anchor.BN(0))
         .accounts({
           configAccount: configAccount,
           stakingPool: stakingPool,
+                  userStake:userStake,
+
           user: userStakePDA,
           userAuthority: user.publicKey,
           userTokenAccount: userAta.address,
@@ -286,14 +303,19 @@ describe("char coin test", () => {
 
   it("claim reward", async () => {
     try {
-
+  const [userStake] = anchor.web3.PublicKey.findProgramAddressSync(
+      [Buffer.from('user_stake'), stakingPool.toBuffer(), user.publicKey.toBuffer(),new anchor.BN(0).toArrayLike(Buffer, "le", 8)],
+      program.programId
+    );
       await program.methods
-        .claimRewardHandler()
+        .claimRewardHandler(new anchor.BN(0))
         .accounts({
           configAccount: configAccount,
           stakingPool: stakingPool,
           user: userStakePDA,
           userAuthority: user.publicKey,
+                            userStake:userStake,
+
           userTokenAccount: userAta.address,
           stakingRewardAta: stakingRewardAta.address,
           tokenProgram: TOKEN_PROGRAM_ID,

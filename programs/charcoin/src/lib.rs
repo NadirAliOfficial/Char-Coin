@@ -113,32 +113,32 @@ pub mod charcoin {
     }
 
     /// Unstake tokens after 48h delay and lockup period has expired. unstake before lockup period will result in penalty
-    pub fn unstake_tokens_handler(ctx: Context<Unstake>) -> Result<()> {
+    pub fn unstake_tokens_handler(ctx: Context<Unstake>,index:u64) -> Result<()> {
         require!(
             ctx.accounts.config_account.config.halted == false,
             ErrorCode::ProgramIsHalted
         );
 
-        staking::unstake_tokens(ctx)
+        staking::unstake_tokens(ctx,index)
     }
 
     /// request Unstake tokens.
-    pub fn request_unstake_handler(ctx: Context<UnstakeRequest>) -> Result<()> {
+    pub fn request_unstake_handler(ctx: Context<UnstakeRequest>,index:u64) -> Result<()> {
         require!(
             ctx.accounts.config_account.config.halted == false,
             ErrorCode::ProgramIsHalted
         );
 
-        staking::request_unstake_tokens(ctx)
+        staking::request_unstake_tokens(ctx,index)
     }
 
-    pub fn claim_reward_handler(ctx: Context<ClaimReward>) -> Result<()> {
+    pub fn claim_reward_handler(ctx: Context<ClaimReward>,index:u64) -> Result<()> {
         require!(
             ctx.accounts.config_account.config.halted == false,
             ErrorCode::ProgramIsHalted
         );
 
-        staking::claim_reward(ctx)
+        staking::claim_reward(ctx,index)
     }
 
     // Burning 
@@ -308,6 +308,7 @@ pub struct Config {
     pub halted: bool,
     pub next_proposal_id:u64,
     pub next_charity_id:u64,
+    pub next_staking_id:u64,
     pub total_burned: u64,
 
 }
