@@ -73,6 +73,8 @@ pub fn request_unstake_tokens(ctx: Context<UnstakeRequest>,index:u64) -> Result<
 pub fn unstake_tokens(ctx: Context<Unstake>,index:u64) -> Result<()> {
     let user = &mut ctx.accounts.user;
     let user_stake = &mut ctx.accounts.user_stake;
+    require!(!user_stake.unstaked, StakingError::AlreadyUnStaked);
+
      require!(
         user.stake_ids.contains(&user_stake.stake_id),
         StakingError::InvalidStakeId
@@ -168,6 +170,8 @@ pub fn claim_reward(ctx: Context<ClaimReward>,index:u64) -> Result<()> {
         .saturating_sub(user_stake.staked_at)
         .try_into()
         .unwrap();
+    require!(staking_pool.total_staked > 0, StakingError::NoStakedTokens);
+
     let periods = staking_duration as u64 / min_staking_duration;
     require!(periods > user_stake.current_period, StakingError::StakingPeriodNotMet);
     let reward_pool_balance = ctx.accounts.staking_reward_ata.amount; // total available rewards
