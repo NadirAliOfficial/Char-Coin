@@ -19,7 +19,6 @@ pub struct InitializeEmergencyState<'info> {
     pub system_program: Program<'info, System>,
 }
 
-/// Initializes a multisig wallet.
 pub fn change_emergency_state(
     ctx: Context<InitializeEmergencyState>,
     state: bool,
