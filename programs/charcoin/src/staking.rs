@@ -52,8 +52,12 @@ pub fn stake_tokens(ctx: Context<Stake>, amount: u64, lockup: u64) -> Result<()>
 }
 
 pub fn request_unstake_tokens(ctx: Context<UnstakeRequest>,index:u64) -> Result<()> {
+    let user = &mut ctx.accounts.user;
     let user_stake = &mut ctx.accounts.user_stake;
-
+    require!(
+        user.stake_ids.contains(&user_stake.stake_id),
+        StakingError::InvalidStakeId
+    );
     require!(user_stake.amount > 0, StakingError::NoStakedTokens);
     require!(user_stake.unstake_requested_at == 0, StakingError::UnstakeAlreadyRequested);
 
@@ -69,6 +73,10 @@ pub fn request_unstake_tokens(ctx: Context<UnstakeRequest>,index:u64) -> Result<
 pub fn unstake_tokens(ctx: Context<Unstake>,index:u64) -> Result<()> {
     let user = &mut ctx.accounts.user;
     let user_stake = &mut ctx.accounts.user_stake;
+     require!(
+        user.stake_ids.contains(&user_stake.stake_id),
+        StakingError::InvalidStakeId
+    );
     let staking_pool = &ctx.accounts.staking_pool;
     let clock = Clock::get()?;
     
@@ -146,6 +154,10 @@ pub fn claim_reward(ctx: Context<ClaimReward>,index:u64) -> Result<()> {
 
     let user = &mut ctx.accounts.user;
     let user_stake = &mut ctx.accounts.user_stake;
+     require!(
+        user.stake_ids.contains(&user_stake.stake_id),
+        StakingError::InvalidStakeId
+    );
     require!(user_stake.amount > 0, StakingError::NoStakedTokens);
     let clock = Clock::get()?;
     let min_staking_duration = user_stake.lockup * 24 * 60 * 60; // days in seconds
@@ -467,5 +479,7 @@ pub enum StakingError {
     UnstakeAlreadyRequested,
     #[msg("Reward Overflow")]
     RewardOverflow,
+    #[msg("Invalid Stake Id")]
+    InvalidStakeId,
 }
 
