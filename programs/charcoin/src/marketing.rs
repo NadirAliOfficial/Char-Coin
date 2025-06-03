@@ -18,21 +18,13 @@ pub struct DistributeMarketingFunds<'info> {
             seeds=[b"config".as_ref()],
             bump
         )]    pub config_account: Account<'info, ConfigAccount>,
-    /// The multisig configuration account (for approval, if needed).
-    // #[account(mut)]
-    // pub multisig: Account<'info, crate::security::Multisig>,
-    /// CHECK: Approved multisig signer.
+    /// CHECK: signer.
     #[account(
         mut,
         constraint = config_account.config.treasury_authority == signer1.key() // Ensure the signer is the admin
     )]
     pub signer1: Signer<'info>,
-    // /// CHECK: Approved multisig signer.
-    // #[account(signer)]
-    // pub signer2: AccountInfo<'info>,
-    // /// CHECK: Approved multisig signer.
-    // #[account(signer)]
-    // pub signer3: AccountInfo<'info>,
+
     /// CHECK: This is the source token account from which funds are withdrawn. Its validity is managed by the token program.
     #[account(mut,
         constraint = source_ata.owner == config_account.config.treasury_authority// Ensure the owner matches the marketing wallet
@@ -77,13 +69,12 @@ pub fn distribute_marketing_funds(
     let amount_death = (total * 150) / 1000; // 15%
 
     // Execute transfers from source to destination accounts.
-    // (Here we assume that multisig approval has been verified separately.)
     let transfer_ctx1 = CpiContext::new(
         ctx.accounts.token_program.to_account_info(),
         Transfer {
             from: ctx.accounts.source_ata.to_account_info(),
             to: ctx.accounts.dest_wallet1_ata.to_account_info(),
-            // For demonstration, use signer1; in production, use a multisig PDA.
+            // use signer1; in production.
             authority: ctx.accounts.signer1.to_account_info(),
         },
     );
