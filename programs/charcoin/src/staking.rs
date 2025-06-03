@@ -18,6 +18,7 @@ pub fn stake_tokens(ctx: Context<Stake>, amount: u64, lockup: u64) -> Result<()>
         StakingError::WrongStakingPackage
     );
     require!(user_stake.amount == 0, StakingError::AlreadyStaked);
+    require!(!user_stake.unstaked, StakingError::AlreadyUnStaked);
     let clock = Clock::get()?;
     // Transfer tokens from user to pool
     let cpi_accounts = Transfer {
@@ -125,14 +126,15 @@ pub fn unstake_tokens(ctx: Context<Unstake>,index:u64) -> Result<()> {
 
 
     // let amount = user.amount;
-    user_stake.amount = 0;
-    user_stake.staked_at = 0;
-    user_stake.unstake_requested_at = 0;
+    
     user_stake.unstaked = true;
     user.total_amount -= user_stake.amount;
     let staking_pool = &mut ctx.accounts.staking_pool;
     staking_pool.total_staked -= user_stake.amount;
-
+    
+    user_stake.amount = 0;
+    user_stake.staked_at = 0;
+    user_stake.unstake_requested_at = 0;
     msg!("Unstaked {} tokens", amount_to_return);
     Ok(())
 }
@@ -455,6 +457,8 @@ pub enum StakingError {
     RewardAlreadyClaimed,
     #[msg("Already Staked")]
     AlreadyStaked,
+    #[msg("Already un Staked")]
+    AlreadyUnStaked,
     #[msg("Wait For 48 Hours")]
     WaitFor48Hours,
     #[msg("Request Unstake First")]
