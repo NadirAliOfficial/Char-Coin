@@ -174,10 +174,17 @@ pub fn claim_reward(ctx: Context<ClaimReward>,index:u64) -> Result<()> {
 
     let periods = staking_duration as u64 / min_staking_duration;
     require!(periods > user_stake.current_period, StakingError::StakingPeriodNotMet);
-    let reward_pool_balance = ctx.accounts.staking_reward_ata.amount; // total available rewards
-    let user_share = user_stake.amount as u128 * 1_000_000 / staking_pool.total_staked as u128; // scaled user share
-    let reward_amount = ((reward_pool_balance as u128 * user_share) * (periods - user_stake.current_period) as u128 )/ 1_000_000;
-    let reward_amount = reward_amount
+
+
+   // Calculate elapsed time since last reward claim
+    let elapsed_time = clock.unix_timestamp.saturating_sub(user_stake.last_claimed_at);
+    require!(elapsed_time > 0, StakingError::StakingPeriodNotMet);
+    let reward = (user_stake.amount) * (staking_pool.rate_per_second) * (elapsed_time as u64) * periods;
+
+
+
+
+    let reward_amount = reward
     .try_into()
     .map_err(|_| error!(StakingError::RewardOverflow))?;
     
@@ -203,6 +210,7 @@ pub fn claim_reward(ctx: Context<ClaimReward>,index:u64) -> Result<()> {
 
     ctx.accounts.staking_pool.reward_issued += reward_amount as i64;
     user.reward_issued += reward_amount as i64;
+    user_stake.last_claimed_at = clock.unix_timestamp;  
     msg!("Claimed reward of {} tokens", reward_amount);
     Ok(())
 }
@@ -245,7 +253,7 @@ pub struct Stake<'info> {
             bump
         )]
     pub config_account: Account<'info, ConfigAccount>,
-    #[account(seeds = [b"staking_pool".as_ref(), staking_pool.token_mint.as_ref()],
+    #[account(mut,seeds = [b"staking_pool".as_ref(), staking_pool.token_mint.as_ref()],
         bump = staking_pool.bump,
     )]
     pub staking_pool: Account<'info, StakingPool>,
@@ -296,7 +304,7 @@ pub struct Unstake<'info> {
             bump
         )]
     pub config_account: Account<'info, ConfigAccount>,
-    #[account(seeds = [b"staking_pool".as_ref(), staking_pool.token_mint.as_ref()],
+    #[account(mut,seeds = [b"staking_pool".as_ref(), staking_pool.token_mint.as_ref()],
         bump = staking_pool.bump,
     )]
     pub staking_pool: Account<'info, StakingPool>,
@@ -350,7 +358,7 @@ pub struct UnstakeRequest<'info> {
             bump
         )]
     pub config_account: Account<'info, ConfigAccount>,
-    #[account(seeds = [b"staking_pool".as_ref(), staking_pool.token_mint.as_ref()],
+    #[account(mut,seeds = [b"staking_pool".as_ref(), staking_pool.token_mint.as_ref()],
         bump = staking_pool.bump,
     )]
     pub staking_pool: Account<'info, StakingPool>,
@@ -430,6 +438,7 @@ pub struct StakingPool {
     pub total_staked: u64,
     pub reward_issued: i64,
     pub bump: u8,
+    pub rate_per_second: u64, // reward rate per second
 }
 
 #[account]
@@ -456,6 +465,7 @@ pub struct UserStakes {
     pub staked_at: i64,
     pub lockup: u64,
     pub unstake_requested_at: i64,
+    pub last_claimed_at: i64,
     pub current_period:u64,
     pub unstaked: bool,
 }

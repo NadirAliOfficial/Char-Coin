@@ -85,13 +85,14 @@ pub mod charcoin {
         Ok(())
     }
 
-    pub fn staking_initialize(ctx: Context<StakeInitialize>) -> Result<()> {
+    pub fn staking_initialize(ctx: Context<StakeInitialize>,rate_per_second:u64) -> Result<()> {
         let staking_pool = &mut ctx.accounts.staking_pool;
         staking_pool.authority = ctx.accounts.authority.key();
         staking_pool.token_mint = ctx.accounts.token_mint.key();
         staking_pool.pool_token_account = ctx.accounts.pool_token_account.key();
         staking_pool.staking_reward_account = ctx.accounts.staking_reward.key();
         staking_pool.bump = ctx.bumps.staking_pool;
+        staking_pool.rate_per_second = rate_per_second;
         Ok(())
     }
     pub fn initialize_treasury_handler(

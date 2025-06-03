@@ -183,7 +183,7 @@ describe("char coin test", () => {
       .rpc();
 
     await program.methods
-      .stakingInitialize()
+      .stakingInitialize(new anchor.BN(0.01e6))
       .accounts({
         stakingPool: stakingPool,
         stakingRewardAccount:stakingRewardAccount,
@@ -323,6 +323,7 @@ const [userStake] = anchor.web3.PublicKey.findProgramAddressSync(
         .signers([user])
         .rpc();
     } catch (e) {
+
       if (e instanceof anchor.AnchorError) {
         assert(e.message.includes("StakingPeriodNotMet"))
       } else {
