@@ -174,10 +174,13 @@ pub fn claim_reward(ctx: Context<ClaimReward>,index:u64) -> Result<()> {
 
     let periods = staking_duration as u64 / min_staking_duration;
     require!(periods > user_stake.current_period, StakingError::StakingPeriodNotMet);
-
-
+    let elapsed_time;
+    if user_stake.last_claimed_at == 0{
+        elapsed_time = clock.unix_timestamp.saturating_sub(user_stake.staked_at);
+    }else{
+        elapsed_time = clock.unix_timestamp.saturating_sub(user_stake.last_claimed_at);
+    }
    // Calculate elapsed time since last reward claim
-    let elapsed_time = clock.unix_timestamp.saturating_sub(user_stake.last_claimed_at);
     require!(elapsed_time > 0, StakingError::StakingPeriodNotMet);
     let reward = (user_stake.amount) * (staking_pool.rate_per_second) * (elapsed_time as u64) * periods;
 
