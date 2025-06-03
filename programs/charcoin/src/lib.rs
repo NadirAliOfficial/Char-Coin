@@ -1,9 +1,9 @@
 #![allow(unexpected_cfgs)]
 #[allow(ambiguous_glob_reexports)]
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Burn, MintTo, Token, Transfer};
 
 // Modules
+pub mod burn;
 pub mod donation;
 pub mod governance;
 pub mod marketing;
@@ -11,15 +11,17 @@ pub mod rewards;
 pub mod security;
 pub mod staking;
 
+use anchor_spl::token::Mint;
 // Re-export public items
 pub use donation::*;
+pub use burn::*;
 pub use governance::*;
 pub use marketing::*;
 pub use rewards::*;
 pub use security::*;
 pub use staking::*;
 
-declare_id!("A9hZQ1EZLM9smeBEEauoykqCue5MsKVesSCVpk93euuM");
+declare_id!("keyk1FHhXGs82vJ2qecM8Rc96PXVvArVtNfoC8xEyKN");
 
 #[program]
 pub mod charcoin {
@@ -30,67 +32,69 @@ pub mod charcoin {
         let config_account = &mut ctx.accounts.config;
         config_account.config = config;
 
-        // Validate charity wallets
+        // Validate wallets
         require!(
             config_account.config.monthly_reward_wallet != Pubkey::default(),
             ErrorCode::InvalidConfiguration
         );
         require!(
-            config_account.config.annual_charity_wallet != Pubkey::default(),
+            config_account.config.annual_reward_wallet != Pubkey::default(),
             ErrorCode::InvalidConfiguration
         );
+
+        require!(
+            config_account.config.monthly_donation_wallet != Pubkey::default(),
+            ErrorCode::InvalidConfiguration
+        );
+        require!(
+            config_account.config.annual_donation_wallet != Pubkey::default(),
+            ErrorCode::InvalidConfiguration
+        );
+        require!(
+            config_account.config.chai_funds != Pubkey::default(),
+            ErrorCode::InvalidConfiguration
+        );
+
+        require!(
+            config_account.config.marketing_wallet_1 != Pubkey::default(),
+            ErrorCode::InvalidConfiguration
+        );
+           require!(
+            config_account.config.marketing_wallet_2 != Pubkey::default(),
+            ErrorCode::InvalidConfiguration
+        );
+
+        require!(
+            config_account.config.admin != Pubkey::default(),
+            ErrorCode::InvalidConfiguration
+        );
+
+            require!(
+            config_account.config.treasury_authority != Pubkey::default(),
+            ErrorCode::InvalidConfiguration
+        );
+
+        require!(
+            config_account.config.death_wallet != Pubkey::default(),
+            ErrorCode::InvalidConfiguration
+        );
+
+
 
         msg!("CHAR Coin initialized with donation wallets configured");
         Ok(())
     }
 
-    pub fn staking_initialize(ctx: Context<StakeInitialize>) -> Result<()> {
+    pub fn staking_initialize(ctx: Context<StakeInitialize>,rate_per_second:u64) -> Result<()> {
         let staking_pool = &mut ctx.accounts.staking_pool;
         staking_pool.authority = ctx.accounts.authority.key();
         staking_pool.token_mint = ctx.accounts.token_mint.key();
         staking_pool.pool_token_account = ctx.accounts.pool_token_account.key();
+        staking_pool.staking_reward_account = ctx.accounts.staking_reward.key();
         staking_pool.bump = ctx.bumps.staking_pool;
+        staking_pool.rate_per_second = rate_per_second;
         Ok(())
     }
-
-    /// Stake tokens with a specified lockup duration.
-    pub fn stake_tokens_handler(ctx: Context<Stake>, amount: u64, lockup: u64) -> Result<()> {
-        staking::stake_tokens(ctx, amount, lockup)
-    }
-
-    /// Unstake tokens after the lockup period has expired.
-    pub fn unstake_tokens_handler(ctx: Context<Unstake>) -> Result<()> {
-        staking::unstake_tokens(ctx)
-    }
-
-    pub fn claim_reward_handler(ctx: Context<ClaimReward>) -> Result<()> {
-        staking::claim_reward(ctx)
-    }
-
-    // Governance
-    // Governance functions
-    pub fn submit_proposal_handler(
-        ctx: Context<SubmitProposal>,
-        title: String,
-        description: String,
-        duration: i64,
-    ) -> Result<()> {
-        governance::submit_proposal(ctx, title, description, duration)
-    }
-
-    pub fn vote_on_proposal_handler(
-        ctx: Context<VoteOnProposal>,
-        proposal_id: u64,
-        vote_choice: bool,
-        amount_staked: u64,
-    ) -> Result<()> {
-        governance::vote_on_proposal(ctx, proposal_id, vote_choice, amount_staked)
-    }
-
-    pub fn finalize_proposal_handler(ctx: Context<FinalizeProposal>) -> Result<()> {
-        governance::finalize_proposal(ctx)
-    }
-
     pub fn initialize_treasury_handler(
         ctx: Context<InitializeTreasury>,
         owners: Vec<Pubkey>,
@@ -99,115 +103,215 @@ pub mod charcoin {
         governance::initialize_treasury(ctx, owners, threshold)
     }
 
+    // Staking
+    /// Stake tokens with a specified lockup duration.
+    pub fn stake_tokens_handler(ctx: Context<Stake>, amount: u64, lockup: u64) -> Result<()> {
+        require!(
+            ctx.accounts.config_account.config.halted == false,
+            ErrorCode::ProgramIsHalted
+        );
+        staking::stake_tokens(ctx, amount, lockup)
+    }
+
+    /// Unstake tokens after 48h delay and lockup period has expired. unstake before lockup period will result in penalty
+    pub fn unstake_tokens_handler(ctx: Context<Unstake>,index:u64) -> Result<()> {
+        require!(
+            ctx.accounts.config_account.config.halted == false,
+            ErrorCode::ProgramIsHalted
+        );
+
+        staking::unstake_tokens(ctx,index)
+    }
+
+    /// request Unstake tokens.
+    pub fn request_unstake_handler(ctx: Context<UnstakeRequest>,index:u64) -> Result<()> {
+        require!(
+            ctx.accounts.config_account.config.halted == false,
+            ErrorCode::ProgramIsHalted
+        );
+
+        staking::request_unstake_tokens(ctx,index)
+    }
+
+    pub fn claim_reward_handler(ctx: Context<ClaimReward>,index:u64) -> Result<()> {
+        require!(
+            ctx.accounts.config_account.config.halted == false,
+            ErrorCode::ProgramIsHalted
+        );
+
+        staking::claim_reward(ctx,index)
+    }
+
+    // Burning 
+    pub fn buyback_burn_handler(
+    ctx: Context<ExecuteBuyback>,
+    fee_amount: u64,
+    conversion_rate: u64,
+    ) -> Result<()> {
+          require!(
+            ctx.accounts.config_account.config.halted == false,
+            ErrorCode::ProgramIsHalted
+        );
+        burn::execute_buyback(ctx, fee_amount, conversion_rate)
+    } 
+    // Governance
+    // Governance functions
+    pub fn submit_proposal_handler(
+        ctx: Context<SubmitProposal>,
+        title: String,
+        description: String,
+        duration: i64,
+    ) -> Result<()> {
+          require!(
+            ctx.accounts.config_account.config.halted == false,
+            ErrorCode::ProgramIsHalted
+        );
+        governance::submit_proposal(ctx, title, description, duration)
+    }
+
+    pub fn vote_on_proposal_handler(
+        ctx: Context<VoteOnProposal>,
+        proposal_id: u64,
+        vote_choice: bool,
+    ) -> Result<()> {
+          require!(
+            ctx.accounts.config_account.config.halted == false,
+            ErrorCode::ProgramIsHalted
+        );
+        governance::vote_on_proposal(ctx, proposal_id, vote_choice)
+    }
+
+    pub fn finalize_proposal_handler(ctx: Context<FinalizeProposal>) -> Result<()> {
+          require!(
+            ctx.accounts.config_account.config.halted == false,
+            ErrorCode::ProgramIsHalted
+        );
+        governance::finalize_proposal(ctx)
+    }
+
+
+
     pub fn create_withdrawal_handler(
         ctx: Context<CreateWithdrawal>,
         amount: u64,
         recipient: Pubkey,
     ) -> Result<()> {
+          require!(
+            ctx.accounts.config_account.config.halted == false,
+            ErrorCode::ProgramIsHalted
+        );
         governance::create_withdrawal(ctx, amount, recipient)
     }
 
     pub fn approve_withdrawal_handler(ctx: Context<ApproveWithdrawal>) -> Result<()> {
+          require!(
+            ctx.accounts.config_account.config.halted == false,
+            ErrorCode::ProgramIsHalted
+        );
         governance::approve_withdrawal(ctx)
     }
 
     pub fn execute_withdrawal_handler(ctx: Context<ExecuteWithdrawal>) -> Result<()> {
+          require!(
+            ctx.accounts.config_account.config.halted == false,
+            ErrorCode::ProgramIsHalted
+        );
         governance::execute_withdrawal(ctx)
     }
 
     // Emergency halt
 
-    pub fn initialize_multisig_handler(
-        ctx: Context<InitializeMultisig>,
-        params: InitializeMultisigParams,
-    ) -> Result<()> {
-        security::initialize_multisig(ctx, params)
-    }
-
-    pub fn verify_multisig_handler(ctx: Context<ExecuteMultisig>) -> Result<()> {
-        security::verify_multisig(&ctx)
-    }
-
-    pub fn initialize_emergency_state_handler(
+    pub fn change_emergency_state_handler(
         ctx: Context<InitializeEmergencyState>,
         state: bool,
     ) -> Result<()> {
-        security::initialize_emergency_state(ctx, state)
-    }
-
-    pub fn emergency_halt_handler(ctx: Context<EmergencyHalt>) -> Result<()> {
-        security::emergency_halt(ctx)
-    }
-
-    pub fn emergency_unhalt_handler(ctx: Context<EmergencyUnhalt>) -> Result<()> {
-        security::emergency_unhalt(ctx)
+        security::change_emergency_state(ctx, state)
     }
 
     // Donation
     /// Registers a new charity for the donation ecosystem.
     pub fn register_charity_handler(
         ctx: Context<RegisterCharity>,
-        id: u64,
         name: String,
         description: String,
         wallet: Pubkey,
         start_time: i64,
         end_time: i64,
     ) -> Result<()> {
-        donation::register_charity(ctx, id, name, description, wallet, start_time, end_time)
+          require!(
+            ctx.accounts.config_account.config.halted == false,
+            ErrorCode::ProgramIsHalted
+        );
+        donation::register_charity(ctx, name, description, wallet, start_time, end_time)
     }
 
     /// Casts or updates a vote for a charity.
     pub fn cast_vote_handler(ctx: Context<CastVote>, vote_weight: u64) -> Result<()> {
+          require!(
+            ctx.accounts.config_account.config.halted == false,
+            ErrorCode::ProgramIsHalted
+        );
         donation::cast_vote(ctx, vote_weight)
     }
 
     /// Finalizes charity voting after the voting period ends.
     pub fn finalize_charity_vote_handler(ctx: Context<FinalizeCharityVote>) -> Result<()> {
+          require!(
+            ctx.accounts.config_account.config.halted == false,
+            ErrorCode::ProgramIsHalted
+        );
         donation::finalize_charity_vote(ctx)
     }
 
     //  Rewards
-    /// Releases monthly funds from the treasury to staking rewards and charity fund.
-    pub fn release_monthly_funds_handler(
+    /// Releases funds from the treasury to staking rewards and charity fund.
+    pub fn release_funds_handler(
         ctx: Context<ReleaseMonthlyFunds>,
         total_amount: u64,
     ) -> Result<()> {
-        rewards::release_monthly_funds(ctx, total_amount)
-    }
-
-    /// Releases annual funds from the treasury to the annual charity fund.
-    pub fn release_annual_funds_handler(
-        ctx: Context<ReleaseAnnualFunds>,
-        annual_amount: u64,
-    ) -> Result<()> {
-        rewards::release_annual_funds(ctx, annual_amount)
+          require!(
+            ctx.accounts.config_account.config.halted == false,
+            ErrorCode::ProgramIsHalted
+        );
+        rewards::release_funds(ctx, total_amount)
     }
 
     // Marketing
     pub fn distribute_marketing_funds_handler(
         ctx: Context<DistributeMarketingFunds>,
+        total_amount: u64,
     ) -> Result<()> {
-        marketing::distribute_marketing_funds(ctx)
+          require!(
+            ctx.accounts.config_account.config.halted == false,
+            ErrorCode::ProgramIsHalted
+        );
+        marketing::distribute_marketing_funds(ctx, total_amount)
     }
-
+  
 }
 
 /// Stores global configuration for CHAR Coin.
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
 pub struct Config {
-    pub token_supply: u64,
-    pub fee_percentage: u8,
-    pub buyback_percentage: u8,
-    pub donation_percentage: u8,
-    pub staking_percentage: u8,
     // The fields below are used in your code, so we add them to avoid errors.
     pub admin: Pubkey,
-    pub mint_authority_bump: u8,
+
     pub monthly_reward_wallet: Pubkey,
     pub annual_reward_wallet: Pubkey,
     pub monthly_donation_wallet: Pubkey,
-    pub annual_charity_wallet: Pubkey,
+    pub annual_donation_wallet: Pubkey,
+    pub chai_funds: Pubkey,
+    pub marketing_wallet_1: Pubkey,
+    pub marketing_wallet_2: Pubkey,
+    pub death_wallet: Pubkey,
+    pub treasury_authority: Pubkey, // fee 
+    /// emergency state that indicates if the contract is halted.
+    pub halted: bool,
+    pub next_proposal_id:u64,
+    pub next_charity_id:u64,
+    pub next_staking_id:u64,
+    pub total_burned: u64,
+
 }
 
 /// Account that holds the global configuration.
@@ -219,72 +323,15 @@ pub struct ConfigAccount {
 /// Accounts for initialization.
 #[derive(Accounts)]
 pub struct Initialize<'info> {
-    #[account(init, payer = user, space = 8 + 256)]
+    #[account(init, payer = user, 
+        seeds=[b"config".as_ref()],
+         bump, space = 8 + std::mem::size_of::<ConfigAccount>())]
     pub config: Account<'info, ConfigAccount>,
-    // CHECK: SPL Token mint account; its data is managed by the token program.
-    pub mint: UncheckedAccount<'info>,
+    #[account(mut)]
+    pub mint: Account<'info, Mint>,
     #[account(mut)]
     pub user: Signer<'info>,
     pub system_program: Program<'info, System>,
-}
-
-/// Accounts for minting tokens.
-#[derive(Accounts)]
-pub struct MintTokens<'info> {
-    // CHECK: SPL Token mint account.
-    #[account(mut)]
-    pub mint: UncheckedAccount<'info>,
-    // CHECK: Destination token account.
-    #[account(mut)]
-    pub destination: UncheckedAccount<'info>,
-    // CHECK: PDA mint authority.
-    pub mint_authority: UncheckedAccount<'info>,
-    #[account(address = config.config.admin)]
-    pub admin: Signer<'info>,
-    pub config: Account<'info, ConfigAccount>,
-    pub token_program: Program<'info, Token>,
-}
-
-/// Accounts for burning tokens.
-#[derive(Accounts)]
-pub struct BurnTokens<'info> {
-    // CHECK: SPL Token mint account.
-    #[account(mut)]
-    pub mint: UncheckedAccount<'info>,
-    // CHECK: Token account from which tokens will be burned.
-    #[account(mut)]
-    pub token_account: UncheckedAccount<'info>,
-    // CHECK: Owner of the token account.
-    pub owner: UncheckedAccount<'info>,
-    pub token_program: Program<'info, Token>,
-}
-
-/// Accounts for transferring tokens.
-#[derive(Accounts)]
-pub struct TransferTokens<'info> {
-    // CHECK: Source token account
-    #[account(mut)]
-    pub from: UncheckedAccount<'info>,
-    // CHECK: Destination token account
-    #[account(mut)]
-    pub destination: UncheckedAccount<'info>,
-    // CHECK: Monthly donation wallet
-    #[account(mut)]
-    pub monthly_donation_wallet: UncheckedAccount<'info>,
-    // CHECK: Staking rewards wallet
-    #[account(mut)]
-    pub staking_rewards_wallet: UncheckedAccount<'info>,
-    // CHECK: Token account owner
-    pub owner: UncheckedAccount<'info>,
-    // Global configuration account
-    pub config: Account<'info, ConfigAccount>,
-    pub token_program: Program<'info, Token>,
-}
-
-/// Event to log supply updates.
-#[event]
-pub struct SupplyUpdated {
-    pub new_supply: u64,
 }
 
 /// Custom error definitions.
@@ -296,4 +343,6 @@ pub enum ErrorCode {
     Unauthorized,
     #[msg("Invalid wallet configuration")]
     InvalidConfiguration,
+    #[msg("program is halted")]
+    ProgramIsHalted,
 }

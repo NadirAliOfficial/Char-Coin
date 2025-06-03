@@ -1,38 +1,8 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::clock::Clock;
-use anchor_spl::token::{self, Token, Transfer};
+use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 
-#[derive(Accounts)]
-pub struct DistributeMarketingFunds<'info> {
-    /// The marketing wallet that tracks allocated funds.
-    #[account(mut)]
-    pub marketing_wallet: Account<'info, MarketingWallet>,
-    /// The multisig configuration account (for approval, if needed).
-    #[account(mut)]
-    pub multisig: Account<'info, crate::security::Multisig>,
-    /// CHECK: Approved multisig signer.
-    #[account(signer)]
-    pub signer1: AccountInfo<'info>,
-    /// CHECK: Approved multisig signer.
-    #[account(signer)]
-    pub signer2: AccountInfo<'info>,
-    /// CHECK: Approved multisig signer.
-    #[account(signer)]
-    pub signer3: AccountInfo<'info>,
-    /// CHECK: This is the source token account from which funds are withdrawn. Its validity is managed by the token program.
-    #[account(mut)]
-    pub source: AccountInfo<'info>,
-    /// Destination account for Marketing Wallet 1 funds.
-    /// CHECK: This is the destination token account to which funds are transferred. Its validity is managed by th
-    #[account(mut)]
-    pub dest_wallet1: AccountInfo<'info>,
-    /// Destination account for Marketing Wallet 2 funds.
-    /// CHECK: This is the destination token account to which funds are transferred. Its validity is managed
-    #[account(mut)]
-    pub dest_wallet2: AccountInfo<'info>,
-    pub token_program: Program<'info, Token>,
-}
-
+use crate::ConfigAccount;
 #[event]
 pub struct MarketingFundDistributionEvent {
     pub marketing_wallet_1_amount: u64,
@@ -40,27 +10,71 @@ pub struct MarketingFundDistributionEvent {
     pub death_wallet_amount: u64,
     pub timestamp: i64,
 }
+#[derive(Accounts)]
+pub struct DistributeMarketingFunds<'info> {
+    /// The marketing wallet that tracks allocated funds.
+  #[account(
+            mut,
+            seeds=[b"config".as_ref()],
+            bump
+        )]    pub config_account: Account<'info, ConfigAccount>,
+    /// CHECK: signer.
+    #[account(
+        mut,
+        constraint = config_account.config.treasury_authority == signer1.key() // Ensure the signer is the admin
+    )]
+    pub signer1: Signer<'info>,
+
+    /// CHECK: This is the source token account from which funds are withdrawn. Its validity is managed by the token program.
+    #[account(mut,
+        constraint = source_ata.owner == config_account.config.treasury_authority// Ensure the owner matches the marketing wallet
+    )]
+    pub source_ata: Account<'info, TokenAccount>,
+    /// Destination token account for Marketing Wallet 1 funds.
+    #[account(
+        mut,
+        constraint = dest_wallet1_ata.owner == config_account.config.marketing_wallet_1 ,// Ensure the owner matches the marketing wallet
+
+    )]
+    pub dest_wallet1_ata: Account<'info, TokenAccount>,
+    /// Destination token  account for Marketing Wallet 2 funds.
+    #[account(
+        mut,
+        constraint = dest_wallet2_ata.owner == config_account.config.marketing_wallet_2,// Ensure the owner matches the marketing wallet
+    )]
+    pub dest_wallet2_ata: Account<'info, TokenAccount>,
+    #[account(
+        mut,
+        constraint = death_wallet_ata.owner == config_account.config.death_wallet,// Ensure the owner matches the marketing wallet
+    )]
+    pub death_wallet_ata: Account<'info, TokenAccount>,
+    pub token_program: Program<'info, Token>,
+}
+
+
 
 /// Distribute marketing funds according to the following split:
 /// - Marketing Wallet 1: 42.5%
 /// - Marketing Wallet 2: 42.5%
 /// - Death Wallet (Burn): 15%
-pub fn distribute_marketing_funds(ctx: Context<DistributeMarketingFunds>) -> Result<()> {
-    let wallet = &mut ctx.accounts.marketing_wallet;
-    let total = wallet.total_funds;
+pub fn distribute_marketing_funds(
+    ctx: Context<DistributeMarketingFunds>,
+    total_amount: u64,
+) -> Result<()> {
+    // let wallet = &mut ctx.accounts.marketing_wallet;
+    let total = total_amount;
     // Calculate distribution amounts.
     let amount_wallet1 = (total * 425) / 1000; // 42.5%
     let amount_wallet2 = (total * 425) / 1000; // 42.5%
     let amount_death = (total * 150) / 1000; // 15%
 
     // Execute transfers from source to destination accounts.
-    // (Here we assume that multisig approval has been verified separately.)
     let transfer_ctx1 = CpiContext::new(
         ctx.accounts.token_program.to_account_info(),
         Transfer {
-            from: ctx.accounts.source.to_account_info(),
-            to: ctx.accounts.dest_wallet1.to_account_info(),
-            // For demonstration, use signer1; in production, use a multisig PDA.
+            from: ctx.accounts.source_ata.to_account_info(),
+            to: ctx.accounts.dest_wallet1_ata.to_account_info(),
+            // use signer1; in production.
             authority: ctx.accounts.signer1.to_account_info(),
         },
     );
@@ -69,17 +83,26 @@ pub fn distribute_marketing_funds(ctx: Context<DistributeMarketingFunds>) -> Res
     let transfer_ctx2 = CpiContext::new(
         ctx.accounts.token_program.to_account_info(),
         Transfer {
-            from: ctx.accounts.source.to_account_info(),
-            to: ctx.accounts.dest_wallet2.to_account_info(),
+            from: ctx.accounts.source_ata.to_account_info(),
+            to: ctx.accounts.dest_wallet2_ata.to_account_info(),
             authority: ctx.accounts.signer1.to_account_info(),
         },
     );
     token::transfer(transfer_ctx2, amount_wallet2)?;
 
     // (Optionally, you might burn the death wallet funds via a separate burn function.)
+    let transfer_death_wallet = CpiContext::new(
+        ctx.accounts.token_program.to_account_info(),
+        Transfer {
+            from: ctx.accounts.source_ata.to_account_info(),
+            to: ctx.accounts.death_wallet_ata.to_account_info(),
+            authority: ctx.accounts.signer1.to_account_info(),
+        },
+    );
+    token::transfer(transfer_death_wallet, amount_death)?;
 
     // Reset the wallet's total funds after distribution.
-    wallet.total_funds = 0;
+    // wallet.total_funds = 0;
 
     // Get current timestamp.
     let clock = Clock::get()?;
@@ -98,14 +121,4 @@ pub fn distribute_marketing_funds(ctx: Context<DistributeMarketingFunds>) -> Res
     Ok(())
 }
 
-/// Marketing wallet state.
-#[account]
-pub struct MarketingWallet {
-    pub threshold: u8,
-    pub signers: Vec<Pubkey>,
-    pub executed: bool,
-    pub total_funds: u64,
-    pub marketing_wallet_1: u64,
-    pub marketing_wallet_2: u64,
-    pub burn_wallet: u64,
-}
+

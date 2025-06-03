@@ -1,6 +1,8 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::clock::Clock;
 
+use crate::{ConfigAccount, StakingPool, UserStakeInfo};
+
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Debug)]
 pub enum ProposalStatus {
     Active,
@@ -38,6 +40,7 @@ pub fn submit_proposal(
     let current_time = Clock::get()?.unix_timestamp;
     let proposal = &mut ctx.accounts.proposal;
     proposal.creator = ctx.accounts.creator.key();
+    proposal.id = ctx.accounts.config_account.config.next_proposal_id;
     proposal.title = title;
     proposal.description = description;
     proposal.yes_votes = 0;
@@ -49,6 +52,7 @@ pub fn submit_proposal(
         proposal.title,
         proposal.creator
     );
+    ctx.accounts.config_account.config.next_proposal_id += 1;
     emit!(ProposalSubmittedEvent {
         proposal_creator: proposal.creator,
         proposal_title: proposal.title.clone(),
@@ -61,11 +65,25 @@ pub fn submit_proposal(
 pub fn vote_on_proposal(
     ctx: Context<VoteOnProposal>,
     proposal_id: u64,
-    vote_choice: bool,
-    amount_staked: u64,
+    vote_choice: bool
+
 ) -> Result<()> {
     let current_time = Clock::get()?.unix_timestamp;
     let proposal = &mut ctx.accounts.proposal;
+    let user = &ctx.accounts.user;
+    require!(
+        user.total_amount > 0,
+        GovernanceError::NoStakedTokens
+    );
+    let amount_staked = user.total_amount;
+    // require!(
+    //     current_time - user.staked_at >= 15 * 86400,
+    //     GovernanceError::VotingNotEligible
+    // );
+     require!(
+        current_time - user.first_staked_at >= 240, // 4 mints
+        GovernanceError::VotingNotEligible
+    );
     require!(
         current_time < proposal.end_time,
         GovernanceError::VotingPeriodEnded
@@ -265,49 +283,84 @@ pub fn execute_withdrawal(ctx: Context<ExecuteWithdrawal>) -> Result<()> {
 
 #[derive(Accounts)]
 pub struct InitializeTreasury<'info> {
-    #[account(init, payer = signer, space = 8 + (32 * 10) + 1 + 8)]
+  #[account(
+            mut,
+            seeds=[b"config".as_ref()],
+            bump
+        )]    pub config_account: Account<'info, ConfigAccount>,
+    #[account(init, seeds=[b"treasury".as_ref()],
+            bump, payer = signer, space = 8 + (32 * 10) + 1 + 8)]
     pub treasury: Account<'info, Treasury>,
-    #[account(mut)]
+    #[account(mut,
+        constraint = signer.key() == config_account.config.admin,
+    )]
     pub signer: Signer<'info>,
     pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
 pub struct CreateWithdrawal<'info> {
+  #[account(
+            mut,
+            seeds=[b"config".as_ref()],
+            bump
+        )]    pub config_account: Account<'info, ConfigAccount>,
     #[account(mut)]
     pub treasury: Account<'info, Treasury>,
-    #[account(init, payer = signer, space = 8 + 8 + 32 + (32 * 10) + 1)]
+    #[account(init, payer = signer, seeds=[b"withdrawal".as_ref()],bump,space = 8 + 8 + 32 + (32 * 10) + 1)]
     pub withdrawal: Account<'info, WithdrawalProposal>,
-    #[account(mut)]
+    #[account(mut,
+            constraint = signer.key() == config_account.config.admin,
+
+    )]
     pub signer: Signer<'info>,
     pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
 pub struct ApproveWithdrawal<'info> {
+   #[account(
+            mut,
+            seeds=[b"config".as_ref()],
+            bump
+        )]    pub config_account: Account<'info, ConfigAccount>,
     #[account(mut)]
     pub treasury: Account<'info, Treasury>,
     #[account(mut)]
     pub withdrawal: Account<'info, WithdrawalProposal>,
-    /// CHECK: Authorized signer; no additional checks.
-    #[account(signer)]
-    pub signer: AccountInfo<'info>,
+    #[account(mut)]
+    pub signer: Signer<'info>,
 }
 
 #[derive(Accounts)]
 pub struct ExecuteWithdrawal<'info> {
+  #[account(
+            mut,
+            seeds=[b"config".as_ref()],
+            bump
+        )]    pub config_account: Account<'info, ConfigAccount>,
     #[account(mut)]
     pub treasury: Account<'info, Treasury>,
     #[account(mut)]
     pub withdrawal: Account<'info, WithdrawalProposal>,
-    /// CHECK: Recipient account; no additional checks.
+        /// CHECK: Recipient account; no additional checks.
+
     #[account(mut)]
-    pub recipient: AccountInfo<'info>,
+    pub recipient:  AccountInfo<'info>,
+        #[account(mut)]
+    pub signer: Signer<'info>,
 }
 
 #[derive(Accounts)]
 pub struct SubmitProposal<'info> {
-    #[account(init, payer = creator, space = 8 + 32 + 8 + 256 + 8 + 8 + 1 + 8)]
+  #[account(
+            mut,
+            seeds=[b"config".as_ref()],
+            bump
+        )]    pub config_account: Account<'info, ConfigAccount>,
+    #[account(init, payer = creator, 
+        seeds=[b"proposal", creator.key().as_ref(),config_account.config.next_proposal_id.to_le_bytes().as_ref()],
+         bump, space = 8 + 32 + 8 + 256 + 8 + 8 + 1 + 8)]
     pub proposal: Account<'info, Proposal>,
     #[account(mut)]
     pub creator: Signer<'info>,
@@ -316,14 +369,32 @@ pub struct SubmitProposal<'info> {
 
 #[derive(Accounts)]
 pub struct VoteOnProposal<'info> {
+  #[account(
+            mut,
+            seeds=[b"config".as_ref()],
+            bump
+        )]    pub config_account: Account<'info, ConfigAccount>,
     #[account(mut)]
     pub proposal: Account<'info, Proposal>,
     #[account(mut)]
     pub voter: Signer<'info>,
+    #[account(
+        seeds = [b"user", staking_pool.key().as_ref(), voter.key().as_ref()],
+        bump = user.bump
+    )]
+    pub user: Account<'info, UserStakeInfo>,
+    pub staking_pool: Account<'info, StakingPool>,
+    pub system_program: Program<'info, System>,
+
 }
 
 #[derive(Accounts)]
 pub struct FinalizeProposal<'info> {
+  #[account(
+            mut,
+            seeds=[b"config".as_ref()],
+            bump
+        )]    pub config_account: Account<'info, ConfigAccount>,
     #[account(mut)]
     pub proposal: Account<'info, Proposal>,
     #[account(mut)]
@@ -348,6 +419,10 @@ pub enum GovernanceError {
     AlreadyExecuted,
     #[msg("Insufficient approvals for withdrawal execution.")]
     InsufficientApprovals,
+    #[msg("User must have staked for at least 15 days to vote.")]
+    VotingNotEligible,
+    #[msg("User has not staked any tokens.")]
+    NoStakedTokens,
 }
 
 #[event]

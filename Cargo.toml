@@ -1,14 +1,14 @@
-
-
 [workspace]
 members = [
     "programs/*"
 ]
 resolver = "2"
 
-
 [profile.release]
 overflow-checks = true
-
-[patch.crates-io]
-solana-program = "=1.16.24"
+lto = "fat"
+codegen-units = 1
+[profile.release.build-override]
+opt-level = 3
+incremental = false
+codegen-units = 1
