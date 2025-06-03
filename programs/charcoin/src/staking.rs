@@ -51,7 +51,7 @@ pub fn stake_tokens(ctx: Context<Stake>, amount: u64, lockup: u64) -> Result<()>
     Ok(())
 }
 
-pub fn request_unstake_tokens(ctx: Context<UnstakeRequest>,index:u64) -> Result<()> {
+pub fn request_unstake_tokens(ctx: Context<UnstakeRequest>,_index:u64) -> Result<()> {
     let user = &mut ctx.accounts.user;
     let user_stake = &mut ctx.accounts.user_stake;
     require!(
@@ -70,7 +70,7 @@ pub fn request_unstake_tokens(ctx: Context<UnstakeRequest>,index:u64) -> Result<
     Ok(())
 }
 
-pub fn unstake_tokens(ctx: Context<Unstake>,index:u64) -> Result<()> {
+pub fn unstake_tokens(ctx: Context<Unstake>,_index:u64) -> Result<()> {
     let user = &mut ctx.accounts.user;
     let user_stake = &mut ctx.accounts.user_stake;
     require!(!user_stake.unstaked, StakingError::AlreadyUnStaked);
@@ -151,7 +151,7 @@ pub fn unstake_tokens(ctx: Context<Unstake>,index:u64) -> Result<()> {
 
 
 
-pub fn claim_reward(ctx: Context<ClaimReward>,index:u64) -> Result<()> {
+pub fn claim_reward(ctx: Context<ClaimReward>,_index:u64) -> Result<()> {
         let staking_pool = &mut ctx.accounts.staking_pool;
 
     let user = &mut ctx.accounts.user;
