@@ -30,6 +30,15 @@ pub fn stake_tokens(ctx: Context<Stake>, amount: u64, lockup: u64) -> Result<()>
     let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
     token::transfer(cpi_ctx, amount)?;
 
+   
+    // update user stake entry
+    user_stake.stake_id = user.stake_count;
+    user_stake.amount = amount;
+    user_stake.staked_at = clock.unix_timestamp;
+    user_stake.lockup = lockup;
+    // update staking pool state
+    staking_pool.total_staked += amount;
+
     // Update user staking info
     user.authority = ctx.accounts.user_authority.key();
     user.staking_pool = staking_pool.key();
@@ -38,28 +47,18 @@ pub fn stake_tokens(ctx: Context<Stake>, amount: u64, lockup: u64) -> Result<()>
         user.first_staked_at = clock.unix_timestamp;
     }
     user.total_amount += amount;
-    user.stake_ids.push(ctx.accounts.config_account.config.next_staking_id);
-    // record individual stake
-    user_stake.stake_id = ctx.accounts.config_account.config.next_staking_id;
-    user_stake.amount = amount;
-    user_stake.staked_at = clock.unix_timestamp;
-    user_stake.lockup = lockup;
+    user.stake_count += 1;
 
-    staking_pool.total_staked += amount;
-    ctx.accounts.config_account.config.next_staking_id += 1;
     msg!("Staked {} tokens", amount);
     Ok(())
 }
 
 pub fn request_unstake_tokens(ctx: Context<UnstakeRequest>,_index:u64) -> Result<()> {
-    let user = &mut ctx.accounts.user;
     let user_stake = &mut ctx.accounts.user_stake;
-    require!(
-        user.stake_ids.contains(&user_stake.stake_id),
-        StakingError::InvalidStakeId
-    );
+  
     require!(user_stake.amount > 0, StakingError::NoStakedTokens);
     require!(user_stake.unstake_requested_at == 0, StakingError::UnstakeAlreadyRequested);
+    require!(!user_stake.unstaked, StakingError::AlreadyUnStaked);
 
     user_stake.unstake_requested_at = Clock::get()?.unix_timestamp;
     msg!(
@@ -75,10 +74,6 @@ pub fn unstake_tokens(ctx: Context<Unstake>,_index:u64) -> Result<()> {
     let user_stake = &mut ctx.accounts.user_stake;
     require!(!user_stake.unstaked, StakingError::AlreadyUnStaked);
 
-     require!(
-        user.stake_ids.contains(&user_stake.stake_id),
-        StakingError::InvalidStakeId
-    );
     let staking_pool = &ctx.accounts.staking_pool;
     let clock = Clock::get()?;
     
@@ -156,10 +151,7 @@ pub fn claim_reward(ctx: Context<ClaimReward>,_index:u64) -> Result<()> {
 
     let user = &mut ctx.accounts.user;
     let user_stake = &mut ctx.accounts.user_stake;
-     require!(
-        user.stake_ids.contains(&user_stake.stake_id),
-        StakingError::InvalidStakeId
-    );
+    
     require!(user_stake.amount > 0, StakingError::NoStakedTokens);
     let clock = Clock::get()?;
     let min_staking_duration = user_stake.lockup * 24 * 60 * 60; // days in seconds
@@ -234,7 +226,7 @@ pub struct StakeInitialize<'info> {
         init,
         payer = authority,
         space = 8,
-        seeds = [b"staking_reward".as_ref(),staking_pool.key().as_ref()],
+        seeds = [b"staking_reward".as_ref()],
         bump
     )]
     pub staking_reward: Account<'info, StakingRewards>,
@@ -250,13 +242,15 @@ pub struct StakeInitialize<'info> {
 
 #[derive(Accounts)]
 pub struct Stake<'info> {
-        #[account(
-            mut,
-            seeds=[b"config".as_ref()],
-            bump
-        )]
+    #[account(
+        mut,
+        seeds=[b"config".as_ref()],
+        bump
+    )]
     pub config_account: Account<'info, ConfigAccount>,
-    #[account(mut,seeds = [b"staking_pool".as_ref(), staking_pool.token_mint.as_ref()],
+    #[account(
+        mut,
+        seeds = [b"staking_pool".as_ref(), staking_pool.token_mint.as_ref()],
         bump = staking_pool.bump,
     )]
     pub staking_pool: Account<'info, StakingPool>,
@@ -265,18 +259,18 @@ pub struct Stake<'info> {
         init_if_needed,
         payer = user_authority,
         space = 8 + std::mem::size_of::<UserStakeInfo>(),
-        seeds = [b"user".as_ref(), staking_pool.key().as_ref(), user_authority.key().as_ref()],
+        seeds = [b"user".as_ref(), user_authority.key().as_ref()],
         bump
     )]
     pub user: Account<'info, UserStakeInfo>,
     #[account(
-        init_if_needed,
+        init,
         payer = user_authority,
-        space = 8 + std::mem::size_of::<UserStakes>(),
-        seeds = [b"user_stake".as_ref(), staking_pool.key().as_ref(), user_authority.key().as_ref(),config_account.config.next_staking_id.to_le_bytes().as_ref()],
+        space = 8 + std::mem::size_of::<UserStakesEntry>(),
+        seeds = [b"user_stake".as_ref(), user_authority.key().as_ref(),user.stake_count.to_le_bytes().as_ref()],
         bump
     )]
-    pub user_stake: Account<'info, UserStakes>,
+    pub user_stake: Account<'info, UserStakesEntry>,
 
     #[account(mut)]
     pub user_authority: Signer<'info>,
@@ -301,30 +295,32 @@ pub struct Stake<'info> {
 #[derive(Accounts)]
 #[instruction(index:u64)]
 pub struct Unstake<'info> {
-              #[account(
-            mut,
-            seeds=[b"config".as_ref()],
-            bump
-        )]
+    #[account(
+        mut,
+        seeds=[b"config".as_ref()],
+        bump
+    )]
     pub config_account: Account<'info, ConfigAccount>,
-    #[account(mut,seeds = [b"staking_pool".as_ref(), staking_pool.token_mint.as_ref()],
+    #[account(
+        mut,
+        seeds = [b"staking_pool".as_ref(), staking_pool.token_mint.as_ref()],
         bump = staking_pool.bump,
     )]
     pub staking_pool: Account<'info, StakingPool>,
 
     #[account(
         mut,
-        seeds = [b"user".as_ref(), staking_pool.key().as_ref(), user_authority.key().as_ref()],
+        seeds = [b"user".as_ref(),  user_authority.key().as_ref()],
         bump = user.bump,
         constraint = user.authority == user_authority.key(),
         constraint = user.staking_pool == staking_pool.key()
     )]
     pub user: Account<'info, UserStakeInfo>,
   #[account(
-        seeds = [b"user_stake".as_ref(), staking_pool.key().as_ref(), user_authority.key().as_ref(),index.to_le_bytes().as_ref()],
+        seeds = [b"user_stake".as_ref(), user_authority.key().as_ref(),index.to_le_bytes().as_ref()],
         bump
     )]
-    pub user_stake: Account<'info, UserStakes>,
+    pub user_stake: Account<'info, UserStakesEntry>,
     #[account(mut)]
     pub user_authority: Signer<'info>,
     #[account(
@@ -361,19 +357,21 @@ pub struct UnstakeRequest<'info> {
             bump
         )]
     pub config_account: Account<'info, ConfigAccount>,
-    #[account(mut,seeds = [b"staking_pool".as_ref(), staking_pool.token_mint.as_ref()],
+    #[account(
+        mut,
+        seeds = [b"staking_pool".as_ref(), staking_pool.token_mint.as_ref()],
         bump = staking_pool.bump,
     )]
     pub staking_pool: Account<'info, StakingPool>,
   #[account(
     mut,
-        seeds = [b"user_stake".as_ref(), staking_pool.key().as_ref(), user_authority.key().as_ref(),index.to_le_bytes().as_ref()],
+        seeds = [b"user_stake".as_ref(), user_authority.key().as_ref(),index.to_le_bytes().as_ref()],
         bump
     )]
-    pub user_stake: Account<'info, UserStakes>,
+    pub user_stake: Account<'info, UserStakesEntry>,
     #[account(
         mut,
-        seeds = [b"user".as_ref(), staking_pool.key().as_ref(), user_authority.key().as_ref()],
+        seeds = [b"user".as_ref(), user_authority.key().as_ref()],
         bump = user.bump,
         constraint = user.authority == user_authority.key(),
         constraint = user.staking_pool == staking_pool.key()
@@ -402,17 +400,17 @@ pub struct ClaimReward<'info> {
 
     #[account(
         mut,
-        seeds = [b"user".as_ref(), staking_pool.key().as_ref(), user_authority.key().as_ref()],
+        seeds = [b"user".as_ref(), user_authority.key().as_ref()],
         bump = user.bump,
         constraint = user.authority == user_authority.key(),
         constraint = user.staking_pool == staking_pool.key()
     )]
     pub user: Account<'info, UserStakeInfo>,
   #[account(
-        seeds = [b"user_stake".as_ref(), staking_pool.key().as_ref(), user_authority.key().as_ref(),index.to_le_bytes().as_ref()],
+        seeds = [b"user_stake".as_ref(), user_authority.key().as_ref(),index.to_le_bytes().as_ref()],
         bump
     )]
-    pub user_stake: Account<'info, UserStakes>,
+    pub user_stake: Account<'info, UserStakesEntry>,
     #[account(mut)]
     pub user_authority: Signer<'info>,
 
@@ -457,12 +455,13 @@ pub struct UserStakeInfo {
     pub total_amount: u64,
     pub reward_issued: i64,
     pub bump: u8,
-    pub stake_ids:Vec<u64>,
+
+    pub stake_count:u64
 }
 
 
 #[account]
-pub struct UserStakes {
+pub struct UserStakesEntry {
     pub stake_id:u64,
     pub amount: u64,
     pub staked_at: i64,

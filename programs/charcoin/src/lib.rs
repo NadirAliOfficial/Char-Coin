@@ -309,7 +309,6 @@ pub struct Config {
     pub halted: bool,
     pub next_proposal_id:u64,
     pub next_charity_id:u64,
-    pub next_staking_id:u64,
     pub total_burned: u64,
 
 }

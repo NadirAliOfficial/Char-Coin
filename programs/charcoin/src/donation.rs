@@ -199,7 +199,7 @@ pub struct CastVote<'info> {
     pub system_program: Program<'info, System>,
 
     #[account(
-        seeds = [b"user", staking_pool.key().as_ref(), voter.key().as_ref()],
+        seeds = [b"user",  voter.key().as_ref()],
         bump = user.bump
     )]
     pub user: Account<'info, UserStakeInfo>,
