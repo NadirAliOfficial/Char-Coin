@@ -318,12 +318,12 @@ describe("char coin test", () => {
 
 
 
-    // const data = await program.account.userStakeInfo.fetch(userStakePDA)
-    // const stake_data = await program.account.userStakes.fetch(userStake)
+    const data = await program.account.userStakeInfo.fetch(userStakePDA)
+    const stake_data = await program.account.userStakesEntry.fetch(userStake)
 
-    // assert.equal(10e6, Number(data.totalAmount));
-    // // assert.equal(30, Number(data.lockup));
-    // assert.equal(1, Number(stake_data.lockup));
+    assert.equal(4e6, Number(data.totalAmount));
+    // // assert.equal(30, Number(stake_data.lockup));
+    assert.equal(1, Number(stake_data.lockup));
 
   });
 
@@ -553,6 +553,8 @@ describe("char coin test", () => {
     assert.equal(balance.value.amount, "0");
     balance = (await program.provider.connection.getTokenAccountBalance(marketingWallet2Ata.address))
     assert.equal(balance.value.amount, "0");
+    balance = (await program.provider.connection.getTokenAccountBalance(deathWalletAta.address))
+    assert.equal(balance.value.amount, "0");
 
     await program.methods
       .distributeMarketingFundsHandler(new anchor.BN(total))
@@ -572,6 +574,8 @@ describe("char coin test", () => {
     assert.equal(balance.value.amount, amount_wallet1.toString());
     balance = (await program.provider.connection.getTokenAccountBalance(marketingWallet2Ata.address))
     assert.equal(balance.value.amount, amount_wallet2.toString());
+    balance = (await program.provider.connection.getTokenAccountBalance(deathWalletAta.address))
+    assert.equal(balance.value.amount, amount_death.toString());
   })
   it("buyback and burn", async () => {
 
