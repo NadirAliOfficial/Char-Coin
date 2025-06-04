@@ -283,6 +283,32 @@ describe("char coin test", () => {
       })
       .signers([user])
       .rpc();
+    // 4th time
+    [userStake] = anchor.web3.PublicKey.findProgramAddressSync(
+      [Buffer.from('user_stake'), user.publicKey.toBuffer(), new anchor.BN(3).toArrayLike(Buffer, "le", 8)],
+      program.programId
+    );
+
+    await program.methods
+      .stakeTokensHandler(
+        new anchor.BN(1e6), // 10 tokens
+        // new anchor.BN(30) // 30 days
+        new anchor.BN(1) // 1 days for devnet
+      )
+      .accounts({
+        configAccount: configAccount,
+
+        stakingPool: stakingPool,
+        user: userStakePDA,
+        userStake: userStake,
+        userAuthority: user.publicKey,
+        userTokenAccount: userAta.address,
+        poolTokenAccount: stakingPoolAta.address,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .signers([user])
+      .rpc();
 
 
 
@@ -299,7 +325,7 @@ describe("char coin test", () => {
 
 
   it("request unstake", async () => {
-
+// 1st
     let [userStake] = anchor.web3.PublicKey.findProgramAddressSync(
       [Buffer.from('user_stake'), user.publicKey.toBuffer(),new anchor.BN(0).toArrayLike(Buffer, "le", 8)],
       program.programId
@@ -318,7 +344,7 @@ describe("char coin test", () => {
       .signers([user])
       .rpc();
 
-
+// 2nd
     [userStake] = anchor.web3.PublicKey.findProgramAddressSync(
       [Buffer.from('user_stake'), user.publicKey.toBuffer(), new anchor.BN(1).toArrayLike(Buffer, "le", 8)],
       program.programId
@@ -339,7 +365,7 @@ describe("char coin test", () => {
 
 
 
-
+// 3rd
     [userStake] = anchor.web3.PublicKey.findProgramAddressSync(
       [Buffer.from('user_stake'), user.publicKey.toBuffer(), new anchor.BN(2).toArrayLike(Buffer, "le", 8)],
       program.programId
@@ -348,6 +374,25 @@ describe("char coin test", () => {
     await sleep(2000)
     await program.methods
       .requestUnstakeHandler(new anchor.BN(2)) // stake id
+      .accounts({
+        configAccount: configAccount,
+        stakingPool: stakingPool,
+        user: userStakePDA,
+        userStake: userStake,
+        userAuthority: user.publicKey,
+      })
+      .signers([user])
+      .rpc();
+      
+      //4th
+    [userStake] = anchor.web3.PublicKey.findProgramAddressSync(
+      [Buffer.from('user_stake'), user.publicKey.toBuffer(), new anchor.BN(3).toArrayLike(Buffer, "le", 8)],
+      program.programId
+    );
+    now = Math.floor(Date.now() / 1000);
+    await sleep(2000)
+    await program.methods
+      .requestUnstakeHandler(new anchor.BN(3)) // stake id
       .accounts({
         configAccount: configAccount,
         stakingPool: stakingPool,
