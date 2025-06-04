@@ -2,7 +2,7 @@ import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { Charcoin } from "../target/types/charcoin";
 import { createMint, getOrCreateAssociatedTokenAccount, mintTo, TOKEN_PROGRAM_ID } from "@solana/spl-token";
-import { assert } from "chai";
+import { assert, use } from "chai";
 
 async function confirmTransaction(tx: string) {
   const latestBlockHash = await anchor.getProvider().connection.getLatestBlockhash();
@@ -203,8 +203,8 @@ describe("char coin test", () => {
 
 
   it("stake", async () => {
-    // let config_data = await program.account.configAccount.fetch(configAccount[0])
     // 1st time
+    let stakeInfo;
     let [userStake] = anchor.web3.PublicKey.findProgramAddressSync(
       [Buffer.from('user_stake'), user.publicKey.toBuffer(), new anchor.BN(0).toArrayLike(Buffer, "le", 8)],
       program.programId
@@ -230,8 +230,9 @@ describe("char coin test", () => {
       .signers([user])
       .rpc();
     // 2nd time
+    stakeInfo = await program.account.userStakeInfo.fetch(userStakePDA);
     [userStake] = anchor.web3.PublicKey.findProgramAddressSync(
-      [Buffer.from('user_stake'), user.publicKey.toBuffer(), new anchor.BN(1).toArrayLike(Buffer, "le", 8)],
+      [Buffer.from('user_stake'), user.publicKey.toBuffer(), new anchor.BN(stakeInfo.stakeCount).toArrayLike(Buffer, "le", 8)],
       program.programId
     );
 
@@ -258,8 +259,10 @@ describe("char coin test", () => {
 
 
     // 3rd time
+        stakeInfo = await program.account.userStakeInfo.fetch(userStakePDA);
+
     [userStake] = anchor.web3.PublicKey.findProgramAddressSync(
-      [Buffer.from('user_stake'), user.publicKey.toBuffer(), new anchor.BN(2).toArrayLike(Buffer, "le", 8)],
+      [Buffer.from('user_stake'), user.publicKey.toBuffer(), new anchor.BN(stakeInfo.stakeCount).toArrayLike(Buffer, "le", 8)],
       program.programId
     );
 
@@ -284,8 +287,10 @@ describe("char coin test", () => {
       .signers([user])
       .rpc();
     // 4th time
+        stakeInfo = await program.account.userStakeInfo.fetch(userStakePDA);
+
     [userStake] = anchor.web3.PublicKey.findProgramAddressSync(
-      [Buffer.from('user_stake'), user.publicKey.toBuffer(), new anchor.BN(3).toArrayLike(Buffer, "le", 8)],
+      [Buffer.from('user_stake'), user.publicKey.toBuffer(), new anchor.BN(stakeInfo.stakeCount).toArrayLike(Buffer, "le", 8)],
       program.programId
     );
 
