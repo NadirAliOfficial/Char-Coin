@@ -501,6 +501,44 @@ describe("char coin test", () => {
     data = await program.account.configAccount.fetch(configAccount[0])
     assert.equal(data.config.halted, true)
 
+try{
+    let stakeInfo = await program.account.userStakeInfo.fetch(userStakePDA);
+
+    let [userStake] = anchor.web3.PublicKey.findProgramAddressSync(
+      [Buffer.from('user_stake'), user.publicKey.toBuffer(), new anchor.BN(stakeInfo.stakeCount).toArrayLike(Buffer, "le", 8)],
+      program.programId
+    );
+
+    await program.methods
+      .stakeTokensHandler(
+        new anchor.BN(1e6), // 10 tokens
+        // new anchor.BN(30) // 30 days
+        new anchor.BN(1) // 1 days for devnet
+      )
+      .accounts({
+        configAccount: configAccount,
+
+        stakingPool: stakingPool,
+        user: userStakePDA,
+        userStake: userStake,
+        userAuthority: user.publicKey,
+        userTokenAccount: userAta.address,
+        poolTokenAccount: stakingPoolAta.address,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .signers([user])
+      .rpc();
+
+  } catch (e) {
+
+      if (e instanceof anchor.AnchorError) {
+        assert(e.message.includes("ProgramIsHalted"))
+      } else {
+        assert(false);
+      }
+    }
+
   });
 
 
