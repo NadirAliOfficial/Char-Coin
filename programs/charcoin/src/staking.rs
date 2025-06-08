@@ -10,11 +10,11 @@ pub fn stake_tokens(ctx: Context<Stake>, amount: u64, lockup: u64) -> Result<()>
     let user_stake = &mut ctx.accounts.user_stake;
 
     // require!(
-    //     lockup == 30 || lockup == 90 || lockup == 180,
+    //     lockup == 30 || lockup == 90 || lockup == 180, // for mainnet
     //     StakingError::WrongStakingPackage
     // );
     require!(
-        lockup == 1 || lockup == 2 || lockup == 3,
+        lockup == 1 || lockup == 2 || lockup == 3, // for devnet
         StakingError::WrongStakingPackage
     );
     require!(user_stake.amount == 0, StakingError::AlreadyStaked);
@@ -71,6 +71,7 @@ pub fn request_unstake_tokens(ctx: Context<UnstakeRequest>,_index:u64) -> Result
 
 pub fn unstake_tokens(ctx: Context<Unstake>,_index:u64) -> Result<()> {
     let user = &mut ctx.accounts.user;
+    let config_account = &mut ctx.accounts.config_account;
     let user_stake = &mut ctx.accounts.user_stake;
     require!(!user_stake.unstaked, StakingError::AlreadyUnStaked);
 
@@ -90,8 +91,9 @@ pub fn unstake_tokens(ctx: Context<Unstake>,_index:u64) -> Result<()> {
     let staking_duration = clock.unix_timestamp.saturating_sub(user_stake.staked_at);
 
     let mut fee = 0;
+    let penalty = config_account.config.early_unstake_penalty; // 100 = 10%
     if staking_duration < min_staking_duration {
-        fee = (user_stake.amount * 10) / 100;
+        fee = (user_stake.amount * penalty) / 1000;
     }
 
     let amount_to_return = user_stake.amount - fee;
@@ -145,7 +147,6 @@ pub fn unstake_tokens(ctx: Context<Unstake>,_index:u64) -> Result<()> {
 }
 
 
-
 pub fn claim_reward(ctx: Context<ClaimReward>,_index:u64) -> Result<()> {
         let staking_pool = &mut ctx.accounts.staking_pool;
 
@@ -153,6 +154,8 @@ pub fn claim_reward(ctx: Context<ClaimReward>,_index:u64) -> Result<()> {
     let user_stake = &mut ctx.accounts.user_stake;
     
     require!(user_stake.amount > 0, StakingError::NoStakedTokens);
+    require!(staking_pool.total_staked > 0, StakingError::NoStakedTokens);
+
     let clock = Clock::get()?;
     let min_staking_duration = user_stake.lockup * 24 * 60 * 60; // days in seconds
 
@@ -162,28 +165,22 @@ pub fn claim_reward(ctx: Context<ClaimReward>,_index:u64) -> Result<()> {
         .saturating_sub(user_stake.staked_at)
         .try_into()
         .unwrap();
-    require!(staking_pool.total_staked > 0, StakingError::NoStakedTokens);
 
     let periods = staking_duration as u64 / min_staking_duration;
     require!(periods > user_stake.current_period, StakingError::StakingPeriodNotMet);
-    let elapsed_time;
-    if user_stake.last_claimed_at == 0{
-        elapsed_time = clock.unix_timestamp.saturating_sub(user_stake.staked_at);
-    }else{
-        elapsed_time = clock.unix_timestamp.saturating_sub(user_stake.last_claimed_at);
-    }
-   // Calculate elapsed time since last reward claim
-    require!(elapsed_time > 0, StakingError::StakingPeriodNotMet);
-    let reward = (user_stake.amount) * (staking_pool.rate_per_second) * (elapsed_time as u64) * periods;
 
-
-
-
-    let reward_amount = reward
-    .try_into()
-    .map_err(|_| error!(StakingError::RewardOverflow))?;
-    
     user_stake.current_period = periods;
+    let reward_percentage = match user_stake.lockup {
+        30 => staking_pool.thirty_day_reward,
+        90 => staking_pool.ninty_day_reward,
+        180 => staking_pool.one_eighty_day_reward,
+        _ => return Err(StakingError::WrongStakingPackage.into()),
+    };
+
+    let reward_amount = (periods * (user_stake.amount as u64) * reward_percentage as u64) / 1000;
+    
+    require!(reward_amount > 0, StakingError::NothingToClaim);
+    
 
     // Create PDA signer seeds
     let pool_seeds = &[
@@ -205,13 +202,18 @@ pub fn claim_reward(ctx: Context<ClaimReward>,_index:u64) -> Result<()> {
 
     ctx.accounts.staking_pool.reward_issued += reward_amount as i64;
     user.reward_issued += reward_amount as i64;
-    user_stake.last_claimed_at = clock.unix_timestamp;  
     msg!("Claimed reward of {} tokens", reward_amount);
     Ok(())
 }
 
 
-
+pub fn set_reward_percentage(ctx: Context<SetReward>,thirty_day_reward:u32,ninty_day_reward:u32,one_eighty_day_reward:u32)->Result<()>{
+    let staking_pool = &mut ctx.accounts.staking_pool;
+    staking_pool.thirty_day_reward =thirty_day_reward;
+    staking_pool.ninty_day_reward =ninty_day_reward;
+    staking_pool.one_eighty_day_reward = one_eighty_day_reward;
+    Ok(())
+}
 #[derive(Accounts)]
 pub struct StakeInitialize<'info> {
     #[account(
@@ -239,6 +241,30 @@ pub struct StakeInitialize<'info> {
     pub pool_token_account: Account<'info, TokenAccount>,
     pub system_program: Program<'info, System>,
 }
+
+#[derive(Accounts)]
+pub struct SetReward<'info> {
+    #[account(
+        mut,
+        seeds=[b"config".as_ref()],
+        bump
+    )]
+    pub config_account: Account<'info, ConfigAccount>,
+    #[account(
+        mut,
+        seeds = [b"staking_pool".as_ref(), staking_pool.token_mint.as_ref()],
+        bump = staking_pool.bump,
+    )]
+    pub staking_pool: Account<'info, StakingPool>,
+
+    #[account(
+        mut,
+        constraint = user_authority.key() == config_account.config.admin,
+    )]  
+    pub user_authority: Signer<'info>,
+
+}
+
 
 #[derive(Accounts)]
 pub struct Stake<'info> {
@@ -317,6 +343,7 @@ pub struct Unstake<'info> {
     )]
     pub user: Account<'info, UserStakeInfo>,
   #[account(
+        mut,
         seeds = [b"user_stake".as_ref(), user_authority.key().as_ref(),index.to_le_bytes().as_ref()],
         bump
     )]
@@ -439,7 +466,9 @@ pub struct StakingPool {
     pub total_staked: u64,
     pub reward_issued: i64,
     pub bump: u8,
-    pub rate_per_second: u64, // reward rate per second
+    pub thirty_day_reward:u32,
+    pub ninty_day_reward:u32,
+    pub one_eighty_day_reward:u32
 }
 
 #[account]
@@ -467,7 +496,6 @@ pub struct UserStakesEntry {
     pub staked_at: i64,
     pub lockup: u64,
     pub unstake_requested_at: i64,
-    pub last_claimed_at: i64,
     pub current_period:u64,
     pub unstaked: bool,
 }
@@ -497,5 +525,7 @@ pub enum StakingError {
     RewardOverflow,
     #[msg("Invalid Stake Id")]
     InvalidStakeId,
+    #[msg("Nothing To Claim")]
+    NothingToClaim,
 }
 

@@ -183,7 +183,7 @@ describe("char coin test", () => {
       .rpc();
 
     await program.methods
-      .stakingInitialize(new anchor.BN(0.01e6))
+      .stakingInitialize()
       .accounts({
         stakingPool: stakingPool,
         stakingRewardAccount: stakingRewardAccount,

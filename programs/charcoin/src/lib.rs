@@ -85,14 +85,13 @@ pub mod charcoin {
         Ok(())
     }
 
-    pub fn staking_initialize(ctx: Context<StakeInitialize>,rate_per_second:u64) -> Result<()> {
+    pub fn staking_initialize(ctx: Context<StakeInitialize>) -> Result<()> {
         let staking_pool = &mut ctx.accounts.staking_pool;
         staking_pool.authority = ctx.accounts.authority.key();
         staking_pool.token_mint = ctx.accounts.token_mint.key();
         staking_pool.pool_token_account = ctx.accounts.pool_token_account.key();
         staking_pool.staking_reward_account = ctx.accounts.staking_reward.key();
         staking_pool.bump = ctx.bumps.staking_pool;
-        staking_pool.rate_per_second = rate_per_second;
         Ok(())
     }
     pub fn initialize_treasury_handler(
@@ -287,6 +286,18 @@ pub mod charcoin {
         );
         marketing::distribute_marketing_funds(ctx, total_amount)
     }
+
+    pub fn update_settings(ctx: Context<Settings>,
+        min_governance_stake:u64,
+        min_stake_duration_voting:i64,
+        early_unstake_penalty:u64
+    )->Result<()>{
+    let config = &mut ctx.accounts.config;
+    config.config.min_governance_stake =min_governance_stake;
+    config.config.min_stake_duration_voting =min_stake_duration_voting;
+    config.config.early_unstake_penalty = early_unstake_penalty;
+    Ok(())
+}
   
 }
 
@@ -305,12 +316,13 @@ pub struct Config {
     pub marketing_wallet_2: Pubkey,
     pub death_wallet: Pubkey,
     pub treasury_authority: Pubkey, // fee 
-    /// emergency state that indicates if the contract is halted.
-    pub halted: bool,
+    pub halted: bool,    /// emergency state that indicates if the contract is halted.
     pub next_proposal_id:u64,
     pub next_charity_id:u64,
     pub total_burned: u64,
-
+    pub min_governance_stake: u64, // Minimum stake required to participate in governance
+    pub min_stake_duration_voting:i64, // Minimum staking period required for a user to be eligible to vote
+    pub early_unstake_penalty:u64, // 100 = 10%
 }
 
 /// Account that holds the global configuration.
@@ -331,6 +343,22 @@ pub struct Initialize<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
     pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct Settings<'info> {
+   #[account(
+        mut,
+        seeds=[b"config".as_ref()],
+        bump
+    )]
+    pub config: Account<'info, ConfigAccount>,
+    #[account(
+        mut,
+        constraint = user.key() == config.config.admin,
+
+    )]
+    pub user: Signer<'info>,
 }
 
 /// Custom error definitions.

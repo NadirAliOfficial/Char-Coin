@@ -72,18 +72,17 @@ pub fn register_charity(
 /// Casts or updates a vote for a charity. VoteRecord is created with PDA seeds
 /// ["vote", charity.key(), voter.key()].
 pub fn cast_vote(ctx: Context<CastVote>, vote_weight: u64) -> Result<()> {
+    let config_account = &mut ctx.accounts.config_account;
+
     let clock = Clock::get()?.unix_timestamp;
     let user = &ctx.accounts.user;
     require!(
         user.total_amount > 0,
         CharityError::NoStakedTokens
     );
-    // require!(
-    //     clock - user.staked_at >= 15 * 86400,
-    //     CharityError::VotingNotEligible
-    // );
+
     require!(
-        clock - user.first_staked_at >= 240, // 4 mints
+        clock - user.first_staked_at >= config_account.config.min_stake_duration_voting, // 15 days
         CharityError::VotingNotEligible
     );
     let charity = &mut ctx.accounts.charity;

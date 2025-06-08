@@ -70,18 +70,17 @@ pub fn vote_on_proposal(
 ) -> Result<()> {
     let current_time = Clock::get()?.unix_timestamp;
     let proposal = &mut ctx.accounts.proposal;
+    let config_account = &mut ctx.accounts.config_account;
     let user = &ctx.accounts.user;
-    require!(
-        user.total_amount > 0,
-        GovernanceError::NoStakedTokens
-    );
+    
     let amount_staked = user.total_amount;
-    // require!(
-    //     current_time - user.staked_at >= 15 * 86400,
-    //     GovernanceError::VotingNotEligible
-    // );
      require!(
-        current_time - user.first_staked_at >= 240, // 4 mints
+        user.total_amount >= config_account.config.min_governance_stake, // Minimum stake to vote
+        GovernanceError::VotingNotEligible
+    );
+
+     require!(
+        current_time - user.first_staked_at >= config_account.config.min_stake_duration_voting, // 15 days
         GovernanceError::VotingNotEligible
     );
     require!(
