@@ -910,6 +910,7 @@ it("buyback and burn", async () => {
         .signers([user])
         .rpc();
     } catch (e) {
+      console.log(e)
       if (e instanceof anchor.AnchorError) {
         assert(e.message.includes("VotingNotEligible"))
       } else {
