@@ -32,55 +32,6 @@ pub mod charcoin {
         let config_account = &mut ctx.accounts.config;
         config_account.config = config;
 
-        // Validate wallets
-        require!(
-            config_account.config.monthly_reward_wallet != Pubkey::default(),
-            ErrorCode::InvalidConfiguration
-        );
-        require!(
-            config_account.config.annual_reward_wallet != Pubkey::default(),
-            ErrorCode::InvalidConfiguration
-        );
-
-        require!(
-            config_account.config.monthly_donation_wallet != Pubkey::default(),
-            ErrorCode::InvalidConfiguration
-        );
-        require!(
-            config_account.config.annual_donation_wallet != Pubkey::default(),
-            ErrorCode::InvalidConfiguration
-        );
-        require!(
-            config_account.config.chai_funds != Pubkey::default(),
-            ErrorCode::InvalidConfiguration
-        );
-
-        require!(
-            config_account.config.marketing_wallet_1 != Pubkey::default(),
-            ErrorCode::InvalidConfiguration
-        );
-           require!(
-            config_account.config.marketing_wallet_2 != Pubkey::default(),
-            ErrorCode::InvalidConfiguration
-        );
-
-        require!(
-            config_account.config.admin != Pubkey::default(),
-            ErrorCode::InvalidConfiguration
-        );
-
-            require!(
-            config_account.config.treasury_authority != Pubkey::default(),
-            ErrorCode::InvalidConfiguration
-        );
-
-        require!(
-            config_account.config.death_wallet != Pubkey::default(),
-            ErrorCode::InvalidConfiguration
-        );
-
-
-
         msg!("CHAR Coin initialized with donation wallets configured");
         Ok(())
     }
@@ -104,7 +55,7 @@ pub mod charcoin {
 
     // Staking
     /// Stake tokens with a specified lockup duration.
-    pub fn stake_tokens_handler(ctx: Context<Stake>, amount: u64, lockup: u64) -> Result<()> {
+    pub fn stake_tokens_handler(ctx: Context<Stake>, amount: u64, lockup: u16) -> Result<()> {
         require!(
             ctx.accounts.config_account.config.halted == false,
             ErrorCode::ProgramIsHalted
@@ -144,14 +95,12 @@ pub mod charcoin {
     // Burning 
     pub fn buyback_burn_handler(
     ctx: Context<ExecuteBuyback>,
-    fee_amount: u64,
-    conversion_rate: u64,
     ) -> Result<()> {
-          require!(
+        require!(
             ctx.accounts.config_account.config.halted == false,
             ErrorCode::ProgramIsHalted
         );
-        burn::execute_buyback(ctx, fee_amount, conversion_rate)
+        burn::execute_buyback(ctx)
     } 
     // Governance
     // Governance functions
@@ -245,12 +194,12 @@ pub mod charcoin {
     }
 
     /// Casts or updates a vote for a charity.
-    pub fn cast_vote_handler(ctx: Context<CastVote>, vote_weight: u64) -> Result<()> {
+    pub fn cast_vote_handler(ctx: Context<CastVote>) -> Result<()> {
           require!(
             ctx.accounts.config_account.config.halted == false,
             ErrorCode::ProgramIsHalted
         );
-        donation::cast_vote(ctx, vote_weight)
+        donation::cast_vote(ctx)
     }
 
     /// Finalizes charity voting after the voting period ends.
@@ -292,12 +241,22 @@ pub mod charcoin {
         min_stake_duration_voting:i64,
         early_unstake_penalty:u64
     )->Result<()>{
-    let config = &mut ctx.accounts.config;
-    config.config.min_governance_stake =min_governance_stake;
-    config.config.min_stake_duration_voting =min_stake_duration_voting;
-    config.config.early_unstake_penalty = early_unstake_penalty;
-    Ok(())
-}
+        let config = &mut ctx.accounts.config;
+        config.config.min_governance_stake =min_governance_stake;
+        config.config.min_stake_duration_voting =min_stake_duration_voting;
+        config.config.early_unstake_penalty = early_unstake_penalty;
+        Ok(())
+    }
+    pub fn set_reward_percentage_handler(ctx: Context<SetReward>,
+        reward1:u16, lockup1:u16,vote_power1:u16, // reward = 50 (5%), lockup = 30 (days), vote_power = 500 (0.5x) 
+        reward2:u16, lockup2:u16,vote_power2:u16,
+        reward3:u16, lockup3:u16,vote_power3:u16,
+    )->Result<()>{
+        staking::set_reward_percentage(ctx, reward1, lockup1,vote_power1,
+            reward2, lockup2,vote_power2,
+            reward3, lockup3,vote_power3
+        )
+    }
   
 }
 
@@ -306,16 +265,28 @@ pub mod charcoin {
 pub struct Config {
     // The fields below are used in your code, so we add them to avoid errors.
     pub admin: Pubkey,
-
-    pub monthly_reward_wallet: Pubkey,
-    pub annual_reward_wallet: Pubkey,
-    pub monthly_donation_wallet: Pubkey,
-    pub annual_donation_wallet: Pubkey,
+    // Reward System
+    // Monthly Rewards Classification (50%)
+    pub monthly_top_tier_wallet: Pubkey,
+    pub monthly_charity_lottery_wallet: Pubkey,
+    // Annual Rewards Classification (50%)
+    pub annual_top_tier_wallet: Pubkey,
+    pub annual_charity_lottery_wallet: Pubkey,
+    
+    // Donation System (80%)
+    // Monthly Donation Classification
+    pub monthly_one_time_causes_wallet: Pubkey,
+    pub monthly_infinite_impact_causes_wallet: Pubkey,
+    // Annual Donation Classification
+    pub annual_one_time_causes_wallet: Pubkey,
+    pub annual_infinite_impact_causes_wallet: Pubkey,
+    // Crisis Classification (10%)
+    // Chai Wallet
     pub chai_funds: Pubkey,
     pub marketing_wallet_1: Pubkey,
     pub marketing_wallet_2: Pubkey,
     pub death_wallet: Pubkey,
-    pub treasury_authority: Pubkey, // fee 
+    pub treasury_authority: Pubkey, // chai Token fee wallet 
     pub halted: bool,    /// emergency state that indicates if the contract is halted.
     pub next_proposal_id:u64,
     pub next_charity_id:u64,
@@ -355,10 +326,10 @@ pub struct Settings<'info> {
     pub config: Account<'info, ConfigAccount>,
     #[account(
         mut,
-        constraint = user.key() == config.config.admin,
+        constraint = admin.key() == config.config.admin,
 
     )]
-    pub user: Signer<'info>,
+    pub admin: Signer<'info>,
 }
 
 /// Custom error definitions.

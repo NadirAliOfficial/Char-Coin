@@ -69,18 +69,18 @@ pub fn register_charity(
     Ok(())
 }
 
-/// Casts or updates a vote for a charity. VoteRecord is created with PDA seeds
-/// ["vote", charity.key(), voter.key()].
-pub fn cast_vote(ctx: Context<CastVote>, vote_weight: u64) -> Result<()> {
+/// Casts or updates a vote for a charity
+pub fn cast_vote(ctx: Context<CastVote>) -> Result<()> {
     let config_account = &mut ctx.accounts.config_account;
+    let staking_pool = &mut ctx.accounts.staking_pool;
 
     let clock = Clock::get()?.unix_timestamp;
     let user = &ctx.accounts.user;
-    require!(
-        user.total_amount > 0,
-        CharityError::NoStakedTokens
+    let amount_staked = user.total_amount;
+       require!(
+        amount_staked >= config_account.config.min_governance_stake, // Minimum stake to vote
+        CharityError::VotingNotEligible
     );
-
     require!(
         clock - user.first_staked_at >= config_account.config.min_stake_duration_voting, // 15 days
         CharityError::VotingNotEligible
@@ -91,6 +91,16 @@ pub fn cast_vote(ctx: Context<CastVote>, vote_weight: u64) -> Result<()> {
         clock >= charity.start_time && clock <= charity.end_time,
         CharityError::VotingNotActive
     );
+
+
+    let vote_power = staking_pool.stake_lockup_reward_array
+        .iter()
+        .find(|x| x.lockup_days == user.largest_lockup)
+        .unwrap()
+        .vote_power;
+    //  voting_amount = 500 * 10e6 / 1000    e.g 500 = 0.5, 1000 = 1
+    let vote_weight = (vote_power as u128 * amount_staked as u128 / 1000) as u64;
+
 
     let vote_record = &mut ctx.accounts.vote_record;
     if vote_record.vote_weight == 0 {

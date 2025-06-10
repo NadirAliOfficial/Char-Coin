@@ -3,7 +3,6 @@ use anchor_lang::solana_program::clock::Clock;
 use anchor_spl::token::{Mint, TokenAccount};
 use anchor_spl::token::{self, Burn, Token};
 use crate::ConfigAccount;
-use crate::ErrorCode;
 
 #[derive(Accounts)]
 pub struct ExecuteBuyback<'info> {
@@ -23,18 +22,22 @@ pub struct ExecuteBuyback<'info> {
     pub token_program: Program<'info, Token>,
 }
 
+#[error_code]
+pub enum CustomError {
+    #[msg("No tokens available for buyback.")]
+    NoTokensToBuyback,
+}
+
 pub fn execute_buyback(
-    ctx: Context<ExecuteBuyback>,
-    fee_amount: u64,
-    conversion_rate: u64,
+    ctx: Context<ExecuteBuyback>
 ) -> Result<()> {
-    // Calculate the number of tokens to buy back.
-    let tokens_to_buy = fee_amount
-        .checked_mul(conversion_rate)
-        .ok_or(ErrorCode::MathError)?;
+    
 
-
-
+    let tokens_to_buy = ctx.accounts.burn_wallet_ata.amount;
+    require!(
+        tokens_to_buy > 0,
+        CustomError::NoTokensToBuyback
+    );
     // Burn tokens from the burn_wallet.
     let burn_ctx = CpiContext::new(
         ctx.accounts.token_program.to_account_info(),
@@ -55,14 +58,12 @@ pub fn execute_buyback(
 
     // Emit an event logging the buyback and burn details.
     emit!(BuybackBurnEvent {
-        fee_amount,
         tokens_bought: tokens_to_buy,
         new_total_burned: tracker.total_burned,
         timestamp: current_time,
     });
     msg!(
-        "Executed buyback: fee_amount {} resulted in burning {} tokens.",
-        fee_amount,
+        "Executed buyback:  burning {} tokens.",
         tokens_to_buy
     );
     Ok(())
@@ -70,7 +71,6 @@ pub fn execute_buyback(
 
 #[event]
 pub struct BuybackBurnEvent {
-    pub fee_amount: u64,
     pub tokens_bought: u64,
     pub new_total_burned: u64,
     pub timestamp: i64,

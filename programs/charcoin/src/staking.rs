@@ -4,17 +4,14 @@ use anchor_spl::{token::{self, Mint, Token, TokenAccount, Transfer}};
 
 use crate::ConfigAccount;
 
-pub fn stake_tokens(ctx: Context<Stake>, amount: u64, lockup: u64) -> Result<()> {
+pub fn stake_tokens(ctx: Context<Stake>, amount: u64, lockup: u16) -> Result<()> {
     let staking_pool = &mut ctx.accounts.staking_pool;
     let user = &mut ctx.accounts.user;
     let user_stake = &mut ctx.accounts.user_stake;
 
-    // require!(
-    //     lockup == 30 || lockup == 90 || lockup == 180, // for mainnet
-    //     StakingError::WrongStakingPackage
-    // );
+ 
     require!(
-        lockup == 1 || lockup == 2 || lockup == 3, // for devnet
+        staking_pool.stake_lockup_reward_array.iter().any(|x| x.lockup_days == lockup),
         StakingError::WrongStakingPackage
     );
     require!(user_stake.amount == 0, StakingError::AlreadyStaked);
@@ -48,6 +45,9 @@ pub fn stake_tokens(ctx: Context<Stake>, amount: u64, lockup: u64) -> Result<()>
     }
     user.total_amount += amount;
     user.stake_count += 1;
+    if  lockup > user.largest_lockup  {
+        user.largest_lockup = lockup;
+    }
 
     msg!("Staked {} tokens", amount);
     Ok(())
@@ -157,7 +157,7 @@ pub fn claim_reward(ctx: Context<ClaimReward>,_index:u64) -> Result<()> {
     require!(staking_pool.total_staked > 0, StakingError::NoStakedTokens);
 
     let clock = Clock::get()?;
-    let min_staking_duration = user_stake.lockup * 24 * 60 * 60; // days in seconds
+    let min_staking_duration = (user_stake.lockup as u64)* 24 * 60 * 60; // days in seconds
 
     // Calculate staking duration
     let staking_duration: i64 = clock
@@ -170,12 +170,11 @@ pub fn claim_reward(ctx: Context<ClaimReward>,_index:u64) -> Result<()> {
     require!(periods > user_stake.current_period, StakingError::StakingPeriodNotMet);
 
     user_stake.current_period = periods;
-    let reward_percentage = match user_stake.lockup {
-        30 => staking_pool.thirty_day_reward,
-        90 => staking_pool.ninty_day_reward,
-        180 => staking_pool.one_eighty_day_reward,
-        _ => return Err(StakingError::WrongStakingPackage.into()),
-    };
+    let reward_percentage = staking_pool.stake_lockup_reward_array
+        .iter()
+        .find(|x| x.lockup_days == user_stake.lockup)
+        .ok_or(StakingError::WrongStakingPackage)?
+        .reward_bps;
 
     let reward_amount = (periods * (user_stake.amount as u64) * reward_percentage as u64) / 1000;
     
@@ -207,11 +206,16 @@ pub fn claim_reward(ctx: Context<ClaimReward>,_index:u64) -> Result<()> {
 }
 
 
-pub fn set_reward_percentage(ctx: Context<SetReward>,thirty_day_reward:u32,ninty_day_reward:u32,one_eighty_day_reward:u32)->Result<()>{
+pub fn set_reward_percentage(ctx: Context<SetReward>,
+    reward1:u16, lockup1:u16,vote_power1:u16, // reward = 50 (5%), lockup = 30 (days), vote_power = 500 (0.5x) 
+    reward2:u16, lockup2:u16,vote_power2:u16,
+    reward3:u16, lockup3:u16,vote_power3:u16,
+)->Result<()>{
     let staking_pool = &mut ctx.accounts.staking_pool;
-    staking_pool.thirty_day_reward =thirty_day_reward;
-    staking_pool.ninty_day_reward =ninty_day_reward;
-    staking_pool.one_eighty_day_reward = one_eighty_day_reward;
+    staking_pool.stake_lockup_reward_array[0] = LockupReward { lockup_days: lockup1, reward_bps: reward1, vote_power: vote_power1 };   
+    staking_pool.stake_lockup_reward_array[1] = LockupReward { lockup_days: lockup2, reward_bps: reward2, vote_power: vote_power2 };   
+    staking_pool.stake_lockup_reward_array[2] = LockupReward { lockup_days: lockup3, reward_bps: reward3, vote_power: vote_power3 };
+     
     Ok(())
 }
 #[derive(Accounts)]
@@ -259,9 +263,9 @@ pub struct SetReward<'info> {
 
     #[account(
         mut,
-        constraint = user_authority.key() == config_account.config.admin,
+        constraint = admin.key() == config_account.config.admin,
     )]  
-    pub user_authority: Signer<'info>,
+    pub admin: Signer<'info>,
 
 }
 
@@ -457,6 +461,13 @@ pub struct ClaimReward<'info> {
     pub token_program: Program<'info, Token>,
 }
 
+#[derive(Clone, Copy, Debug, AnchorSerialize, AnchorDeserialize)]
+pub struct LockupReward {
+    pub lockup_days: u16,    // Number of days for lockup
+    pub reward_bps: u16,     // Reward percentage in basis points (500 = 5%)
+    pub vote_power:u16
+}
+
 #[account]
 pub struct StakingPool {
     pub authority: Pubkey,
@@ -466,9 +477,7 @@ pub struct StakingPool {
     pub total_staked: u64,
     pub reward_issued: i64,
     pub bump: u8,
-    pub thirty_day_reward:u32,
-    pub ninty_day_reward:u32,
-    pub one_eighty_day_reward:u32
+    pub stake_lockup_reward_array: [LockupReward; 3], 
 }
 
 #[account]
@@ -480,6 +489,7 @@ pub struct UserStakeInfo {
     pub authority: Pubkey,
     pub staking_pool: Pubkey,
     pub first_staked_at: i64,
+    pub largest_lockup: u16,
 
     pub total_amount: u64,
     pub reward_issued: i64,
@@ -494,7 +504,7 @@ pub struct UserStakesEntry {
     pub stake_id:u64,
     pub amount: u64,
     pub staked_at: i64,
-    pub lockup: u64,
+    pub lockup: u16,
     pub unstake_requested_at: i64,
     pub current_period:u64,
     pub unstaked: bool,

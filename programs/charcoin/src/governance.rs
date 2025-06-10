@@ -70,12 +70,13 @@ pub fn vote_on_proposal(
 ) -> Result<()> {
     let current_time = Clock::get()?.unix_timestamp;
     let proposal = &mut ctx.accounts.proposal;
+    let staking_pool = &mut ctx.accounts.staking_pool;
     let config_account = &mut ctx.accounts.config_account;
     let user = &ctx.accounts.user;
     
     let amount_staked = user.total_amount;
      require!(
-        user.total_amount >= config_account.config.min_governance_stake, // Minimum stake to vote
+        amount_staked >= config_account.config.min_governance_stake, // Minimum stake to vote
         GovernanceError::VotingNotEligible
     );
 
@@ -87,15 +88,24 @@ pub fn vote_on_proposal(
         current_time < proposal.end_time,
         GovernanceError::VotingPeriodEnded
     );
+
+    let vote_power = staking_pool.stake_lockup_reward_array
+        .iter()
+        .find(|x| x.lockup_days == user.largest_lockup)
+        .unwrap()
+        .vote_power;
+    //  voting_amount = 500 * 10e6 / 1000    e.g 500 = 0.5, 1000 = 1
+    let voting_amount = (vote_power as u128 * amount_staked as u128 / 1000) as u64;
+
     if vote_choice {
         proposal.yes_votes = proposal
             .yes_votes
-            .checked_add(amount_staked)
+            .checked_add(voting_amount)
             .ok_or(GovernanceError::MathError)?;
     } else {
         proposal.no_votes = proposal
             .no_votes
-            .checked_add(amount_staked)
+            .checked_add(voting_amount)
             .ok_or(GovernanceError::MathError)?;
     }
     msg!(
@@ -373,6 +383,7 @@ pub struct VoteOnProposal<'info> {
             seeds=[b"config".as_ref()],
             bump
         )]    pub config_account: Account<'info, ConfigAccount>,
+        
     #[account(mut)]
     pub proposal: Account<'info, Proposal>,
     #[account(mut)]
@@ -382,6 +393,11 @@ pub struct VoteOnProposal<'info> {
         bump = user.bump
     )]
     pub user: Account<'info, UserStakeInfo>,
+   #[account(
+        mut,
+        seeds = [b"staking_pool".as_ref(), staking_pool.token_mint.as_ref()],
+        bump = staking_pool.bump,
+    )]
     pub staking_pool: Account<'info, StakingPool>,
     pub system_program: Program<'info, System>,
 
