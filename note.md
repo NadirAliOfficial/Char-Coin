@@ -1,6 +1,4 @@
-1. where to use Annual Staking Yield (%) ?
-2. one time cause and infinite impact cause distribution % ?
-3. are stake rewards %  monthly claimable or after each cycle ?
+
 
 
 
