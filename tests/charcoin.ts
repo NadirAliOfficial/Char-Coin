@@ -864,7 +864,7 @@ it("buyback and burn", async () => {
       program.programId
     );
 
-    let startTime = Math.floor(Date.now() / 1000);
+    let startTime = Math.floor(Date.now() / 1000) -1;
     let endTime = Math.floor(Date.now() / 1000) + 9;
     const charityWallet = anchor.web3.Keypair.generate()
     const tx = await program.methods
