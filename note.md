@@ -1,8 +1,16 @@
 
 # Issue 1
 The `vote_on_proposal` lacks critical checks to ensure that:
-1. a staker has not already submitted an unstake request, and
-2. a single staker is not voting on multiple proposals simultaneously.
+1. a staker has not already submitted an unstake request
+
+
+
+# Issue 2
+The following code block is intended to verify whether the voter initially staked 15 days ago. However, it only checks the first
+stake, allowing a user to stake a very small amount initially and then stake other amounts after 15 days. Consequently, the
+newly staked CHAR can be used to vote immediately, bypassing the intended lock-up period.
+
+
 
 
 
@@ -26,7 +34,7 @@ changes:
 8. release_funds updated logic for fund transfer
 9. staking lockup dynamic
 10. user largest_lockup logic implementation 
-    11. claim_reward added the logic for get reward_percentage based on lockup
+11. claim_reward added the logic for get reward_percentage based on lockup
 12. added testcases for the above changes.
 
 

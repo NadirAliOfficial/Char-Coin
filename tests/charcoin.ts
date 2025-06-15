@@ -223,7 +223,7 @@ describe("char coin test", () => {
 
       /**
        *  min_governance_stake:u64,
-        min_stake_duration_voting:i64,
+        min_stake_duration_voting:u64,
         early_unstake_penalty:u64
        */
     await program.methods
@@ -502,6 +502,14 @@ describe("char coin test", () => {
 
 
   it("claim reward", async () => {
+      await mintTo(
+      program.provider.connection,
+      admin, // fee payer
+      tokenMint,
+      stakingRewardAta.address, // destination ATA
+      admin, // mint authority
+      1_000_000_00000
+    );
     try {
       const [userStake] = anchor.web3.PublicKey.findProgramAddressSync(
         [Buffer.from('user_stake'), user.publicKey.toBuffer(), new anchor.BN(0).toArrayLike(Buffer, "le", 8)],
@@ -940,107 +948,10 @@ it("buyback and burn", async () => {
       .rpc();
   })
 
-  it("init dao treasury", async () => {
-    const [treasuryAccount] = anchor.web3.PublicKey.findProgramAddressSync(
-      [Buffer.from('treasury'),],
-      program.programId
-    );
-    const owners = [
-      admin.publicKey,
-      treasuryAuthority.publicKey
-    ]
-    const tx = await program.methods
-      .initializeTreasuryHandler(owners, 2)
-      .accounts({
-        treasury: treasuryAccount,
-        signer: admin.publicKey,
-        systemProgram: anchor.web3.SystemProgram.programId,
-      })
-      .signers([admin])
-      .rpc();
-  })
+ 
 
 
-  it("create withdrawal ", async () => {
-    const [treasuryAccount] = anchor.web3.PublicKey.findProgramAddressSync(
-      [Buffer.from('treasury'),],
-      program.programId
-    );
-    const [withdrawalAccount] = anchor.web3.PublicKey.findProgramAddressSync(
-      [Buffer.from('withdrawal'),],
-      program.programId
-    );
-    const tx = await program.methods
-      .createWithdrawalHandler(new anchor.BN(2), admin.publicKey)
-      .accounts({
-        configAccount: configAccount,
-        treasury: treasuryAccount,
-        withdrawal: withdrawalAccount,
-        signer: admin.publicKey,
-        systemProgram: anchor.web3.SystemProgram.programId,
-      })
-      .signers([admin])
-      .rpc();
-  })
-
-
-  it("approve withdrawal ", async () => {
-    const [treasuryAccount] = anchor.web3.PublicKey.findProgramAddressSync(
-      [Buffer.from('treasury'),],
-      program.programId
-    );
-    const [withdrawalAccount] = anchor.web3.PublicKey.findProgramAddressSync(
-      [Buffer.from('withdrawal'),],
-      program.programId
-    );
-    const tx = await program.methods
-      .approveWithdrawalHandler()
-      .accounts({
-        configAccount: configAccount,
-        treasury: treasuryAccount,
-        withdrawal: withdrawalAccount,
-        signer: admin.publicKey,
-      })
-      .signers([admin])
-      .rpc();
-
-    await program.methods
-      .approveWithdrawalHandler()
-      .accounts({
-        configAccount: configAccount,
-        treasury: treasuryAccount,
-        withdrawal: withdrawalAccount,
-        signer: treasuryAuthority.publicKey,
-      })
-      .signers([treasuryAuthority])
-      .rpc();
-  })
-
-
-
-  it("execute withdrawal ", async () => {
-    const [treasuryAccount] = anchor.web3.PublicKey.findProgramAddressSync(
-      [Buffer.from('treasury'),],
-      program.programId
-    );
-    await airdropSol(treasuryAccount, 1 * 1e9);
-    const [withdrawalAccount] = anchor.web3.PublicKey.findProgramAddressSync(
-      [Buffer.from('withdrawal'),],
-      program.programId
-    );
-    const tx = await program.methods
-      .executeWithdrawalHandler()
-      .accounts({
-        configAccount: configAccount,
-        treasury: treasuryAccount,
-        withdrawal: withdrawalAccount,
-        recipient: admin.publicKey,
-        signer: admin.publicKey,
-      })
-      .signers([admin])
-      .rpc();
-  })
-
+ 
 
 
 });

@@ -1,13 +1,11 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 
-use crate::{ConfigAccount};
-
-
+use crate::ConfigAccount;
 
 #[derive(Accounts)]
 pub struct ReleaseMonthlyFunds<'info> {
-     #[account(
+    #[account(
             mut,
             seeds=[b"config".as_ref()],
             bump
@@ -15,31 +13,67 @@ pub struct ReleaseMonthlyFunds<'info> {
     pub config_account: Account<'info, ConfigAccount>,
 
     ///  Treasury token account holding funds to be distributed.
-    #[account(mut)]
+    #[account(
+        mut,
+        constraint = treasury_ata.mint == config_account.config.chai_token_mint
+    )]
     pub treasury_ata: Account<'info, TokenAccount>,
-    /// Destination token account for staking rewards (15%).
-    #[account(mut)]
+    #[account(
+        mut,
+        constraint = staking_reward_ata.mint == config_account.config.chai_token_mint
+    )]
     pub staking_reward_ata: Account<'info, TokenAccount>,
-
-    #[account(mut)]
+    #[account(
+        mut,
+        constraint = monthly_top_tier_ata.mint == config_account.config.chai_token_mint
+    )]
     pub monthly_top_tier_ata: Account<'info, TokenAccount>,
-    #[account(mut)]
+    #[account(
+        mut,
+        constraint = monthly_charity_lottery_ata.mint == config_account.config.chai_token_mint
+    )]
     pub monthly_charity_lottery_ata: Account<'info, TokenAccount>,
-    #[account(mut)]
+    #[account(
+        mut,
+        constraint = annual_top_tier_ata.mint == config_account.config.chai_token_mint
+    )]
     pub annual_top_tier_ata: Account<'info, TokenAccount>,
-    #[account(mut)]
+    #[account(
+        mut,
+        constraint = annual_charity_lottery_ata.mint == config_account.config.chai_token_mint
+    )]
     pub annual_charity_lottery_ata: Account<'info, TokenAccount>,
-    #[account(mut)]
+    #[account(mut,
+        constraint = monthly_one_time_causes_ata.mint == config_account.config.chai_token_mint
+
+    )]
     pub monthly_one_time_causes_ata: Account<'info, TokenAccount>,
-    #[account(mut)]
+    #[account(
+        mut,
+        constraint = monthly_infinite_impact_causes_ata.mint == config_account.config.chai_token_mint
+
+    )]
     pub monthly_infinite_impact_causes_ata: Account<'info, TokenAccount>,
-    #[account(mut)]
+    #[account(
+        mut,
+        constraint = annual_one_time_causes_ata.mint == config_account.config.chai_token_mint
+
+    )]
     pub annual_one_time_causes_ata: Account<'info, TokenAccount>,
-    #[account(mut)]
+    #[account(
+        mut,
+        constraint = annual_infinite_impact_causes_ata.mint == config_account.config.chai_token_mint
+
+    )]
     pub annual_infinite_impact_causes_ata: Account<'info, TokenAccount>,
 
-    #[account(mut)]
+    #[account(
+        mut,
+        constraint = chai_funds_ata.mint == config_account.config.chai_token_mint
+    )]
     pub chai_funds_ata: Account<'info, TokenAccount>,
+
+    /// will use https://squads.xyz/ for multi sig
     /// Authority for treasury withdrawals.
     #[account(
         mut,
@@ -68,66 +102,52 @@ pub fn release_funds(ctx: Context<ReleaseMonthlyFunds>, total_amount: u64) -> Re
         .checked_div(1000)
         .unwrap();
 
-    // Split donation into subcategories 
-    let reward_system = donation_total 
+    // Split donation into subcategories
+    let reward_system = donation_total
         .checked_mul(200)
         .unwrap()
         .checked_div(1000)
         .unwrap(); // 20% of (donation_total)
 
-
-
-    let monthly_reward_classification = reward_system 
+    let monthly_reward_classification = reward_system
         .checked_mul(500)
         .unwrap()
         .checked_div(1000)
         .unwrap(); // 50% of (reward_system)
 
-       let monthly_top_tier_percentage = monthly_reward_classification 
+    let monthly_top_tier_percentage = monthly_reward_classification
         .checked_mul(500)
         .unwrap()
         .checked_div(1000)
         .unwrap(); // 50% of (monthly_reward_classification)
-       let monthly_charity_lottery_percentage = monthly_reward_classification 
+    let monthly_charity_lottery_percentage = monthly_reward_classification
         .checked_mul(500)
         .unwrap()
         .checked_div(1000)
         .unwrap(); // 50% of (monthly_reward_classification)
 
+    let annual_reward_classification = reward_system
+        .checked_mul(500)
+        .unwrap()
+        .checked_div(1000)
+        .unwrap(); // 50% of (reward_system)
 
+    let annual_top_tier_percentage = annual_reward_classification
+        .checked_mul(500)
+        .unwrap()
+        .checked_div(1000)
+        .unwrap(); // 50% of (annual_reward_classification)
+    let annual_charity_lottery_percentage = annual_reward_classification
+        .checked_mul(500)
+        .unwrap()
+        .checked_div(1000)
+        .unwrap(); // 50% of (annual_reward_classification)
 
-
-        let annual_reward_classification = reward_system 
-            .checked_mul(500)
-            .unwrap()
-            .checked_div(1000)
-            .unwrap(); // 50% of (reward_system)
-
-
-        let annual_top_tier_percentage = annual_reward_classification 
-            .checked_mul(500)
-            .unwrap()
-            .checked_div(1000)
-            .unwrap(); // 50% of (annual_reward_classification)
-        let annual_charity_lottery_percentage = annual_reward_classification 
-            .checked_mul(500)
-            .unwrap()
-            .checked_div(1000)
-            .unwrap(); // 50% of (annual_reward_classification)
-
-
-
-
-
-
-
-    let donation_system = donation_total 
+    let donation_system = donation_total
         .checked_mul(800)
         .unwrap()
         .checked_div(1000)
         .unwrap(); // 80% of (donation_total)
-
-
 
     // Split monthly donation into immediate and reserved portions
     let monthly_donation_fund = donation_system
@@ -141,36 +161,30 @@ pub fn release_funds(ctx: Context<ReleaseMonthlyFunds>, total_amount: u64) -> Re
         .checked_div(1000)
         .unwrap(); // 10% of (monthly_donation_amount)
 
+    let monthly_one_time_causes_percentage = monthly_donation_fund
+        .checked_mul(500)
+        .unwrap()
+        .checked_div(1000)
+        .unwrap();
 
-  let monthly_one_time_causes_percentage = monthly_donation_fund 
-            .checked_mul(500)
-            .unwrap()
-            .checked_div(1000)
-            .unwrap(); 
+    let monthly_infinite_impact_causes_percentage = monthly_donation_fund
+        .checked_mul(500)
+        .unwrap()
+        .checked_div(1000)
+        .unwrap();
+    let annual_one_time_causes_percentage = annual_donation_fund
+        .checked_mul(500)
+        .unwrap()
+        .checked_div(1000)
+        .unwrap();
 
-  let monthly_infinite_impact_causes_percentage = monthly_donation_fund 
-            .checked_mul(500)
-            .unwrap()
-            .checked_div(1000)
-            .unwrap(); 
-  let annual_one_time_causes_percentage = annual_donation_fund 
-            .checked_mul(500)
-            .unwrap()
-            .checked_div(1000)
-            .unwrap(); 
+    let annual_infinite_impact_causes_percentage = annual_donation_fund
+        .checked_mul(500)
+        .unwrap()
+        .checked_div(1000)
+        .unwrap();
 
-  let annual_infinite_impact_causes_percentage = annual_donation_fund 
-            .checked_mul(500)
-            .unwrap()
-            .checked_div(1000)
-            .unwrap(); 
-
-
-
-
-
-
-     let chai_fund = donation_system
+    let chai_fund = donation_system
         .checked_mul(100)
         .unwrap()
         .checked_div(1000)
@@ -236,7 +250,6 @@ pub fn release_funds(ctx: Context<ReleaseMonthlyFunds>, total_amount: u64) -> Re
         annual_charity_lottery_percentage,
     )?;
 
-
     // Transfer to immediate monthly donation
     token::transfer(
         CpiContext::new(
@@ -256,7 +269,10 @@ pub fn release_funds(ctx: Context<ReleaseMonthlyFunds>, total_amount: u64) -> Re
             ctx.accounts.token_program.to_account_info(),
             Transfer {
                 from: ctx.accounts.treasury_ata.to_account_info(),
-                to: ctx.accounts.monthly_infinite_impact_causes_ata.to_account_info(),
+                to: ctx
+                    .accounts
+                    .monthly_infinite_impact_causes_ata
+                    .to_account_info(),
                 authority: ctx.accounts.treasury_authority.to_account_info(),
             },
         ),
@@ -282,15 +298,17 @@ pub fn release_funds(ctx: Context<ReleaseMonthlyFunds>, total_amount: u64) -> Re
             ctx.accounts.token_program.to_account_info(),
             Transfer {
                 from: ctx.accounts.treasury_ata.to_account_info(),
-                to: ctx.accounts.annual_infinite_impact_causes_ata.to_account_info(),
+                to: ctx
+                    .accounts
+                    .annual_infinite_impact_causes_ata
+                    .to_account_info(),
                 authority: ctx.accounts.treasury_authority.to_account_info(),
             },
         ),
         annual_infinite_impact_causes_percentage,
     )?;
 
-
-     // Transfer to chai funds
+    // Transfer to chai funds
     token::transfer(
         CpiContext::new(
             ctx.accounts.token_program.to_account_info(),
@@ -303,7 +321,5 @@ pub fn release_funds(ctx: Context<ReleaseMonthlyFunds>, total_amount: u64) -> Re
         chai_fund,
     )?;
 
-  
     Ok(())
 }
-

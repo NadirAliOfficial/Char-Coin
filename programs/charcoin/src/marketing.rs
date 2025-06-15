@@ -8,24 +8,25 @@ pub struct MarketingFundDistributionEvent {
     pub marketing_wallet_1_amount: u64,
     pub marketing_wallet_2_amount: u64,
     pub death_wallet_amount: u64,
-    pub timestamp: i64,
+    pub timestamp: u64,
 }
 #[derive(Accounts)]
 pub struct DistributeMarketingFunds<'info> {
     /// The marketing wallet that tracks allocated funds.
-  #[account(
-            mut,
-            seeds=[b"config".as_ref()],
-            bump
-        )]    pub config_account: Account<'info, ConfigAccount>,
-    /// CHECK: signer.
+    #[account(
+        mut,
+        seeds=[b"config".as_ref()],
+        bump
+    )]
+    pub config_account: Account<'info, ConfigAccount>,
+    /// will use https://squads.xyz/ for multi sig
     #[account(
         mut,
         constraint = config_account.config.treasury_authority == signer1.key() // Ensure the signer is the admin
     )]
     pub signer1: Signer<'info>,
 
-    /// CHECK: This is the source token account from which funds are withdrawn. Its validity is managed by the token program.
+    /// This is the source token account from which funds are withdrawn. Its validity is managed by the token program.
     #[account(mut,
         constraint = source_ata.mint == config_account.config.chai_token_mint, // Ensure the mint matches the config
         constraint = source_ata.owner == config_account.config.treasury_authority// Ensure the owner matches the marketing wallet
@@ -35,6 +36,7 @@ pub struct DistributeMarketingFunds<'info> {
     #[account(
         mut,
         constraint = dest_wallet1_ata.owner == config_account.config.marketing_wallet_1 ,// Ensure the owner matches the marketing wallet
+        constraint = dest_wallet1_ata.mint == config_account.config.chai_token_mint
 
     )]
     pub dest_wallet1_ata: Account<'info, TokenAccount>,
@@ -42,17 +44,17 @@ pub struct DistributeMarketingFunds<'info> {
     #[account(
         mut,
         constraint = dest_wallet2_ata.owner == config_account.config.marketing_wallet_2,// Ensure the owner matches the marketing wallet
+        constraint = dest_wallet2_ata.mint == config_account.config.chai_token_mint
     )]
     pub dest_wallet2_ata: Account<'info, TokenAccount>,
     #[account(
         mut,
         constraint = death_wallet_ata.owner == config_account.config.death_wallet,// Ensure the owner matches the marketing wallet
+        constraint = death_wallet_ata.mint == config_account.config.chai_token_mint,// Ensure the owner matches the marketing wallet
     )]
     pub death_wallet_ata: Account<'info, TokenAccount>,
     pub token_program: Program<'info, Token>,
 }
-
-
 
 /// Distribute marketing funds according to the following split:
 /// - Marketing Wallet 1: 42.5%
@@ -111,7 +113,7 @@ pub fn distribute_marketing_funds(
         marketing_wallet_1_amount: amount_wallet1,
         marketing_wallet_2_amount: amount_wallet2,
         death_wallet_amount: amount_death,
-        timestamp: clock.unix_timestamp,
+        timestamp: clock.unix_timestamp as u64,
     });
     msg!(
         "Distributed funds: {} to Marketing Wallet 1, {} to Marketing Wallet 2, {} for Death Wallet",
@@ -121,5 +123,3 @@ pub fn distribute_marketing_funds(
     );
     Ok(())
 }
-
-

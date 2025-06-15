@@ -1,22 +1,25 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::clock::Clock;
-use anchor_spl::{token::{self, Mint, Token, TokenAccount, Transfer}};
+use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
 use crate::ConfigAccount;
 
 pub fn stake_tokens(ctx: Context<Stake>, amount: u64, lockup: u16) -> Result<()> {
+    require!(amount > 0, StakingError::NoStakedTokens);
     let staking_pool = &mut ctx.accounts.staking_pool;
     let user = &mut ctx.accounts.user;
     let user_stake = &mut ctx.accounts.user_stake;
 
- 
     require!(
-        staking_pool.stake_lockup_reward_array.iter().any(|x| x.lockup_days == lockup),
+        staking_pool
+            .stake_lockup_reward_array
+            .iter()
+            .any(|x| x.lockup_days == lockup),
         StakingError::WrongStakingPackage
     );
     require!(user_stake.amount == 0, StakingError::AlreadyStaked);
     require!(user_stake.unstaked_at == 0, StakingError::AlreadyUnStaked);
-    let clock = Clock::get()?;
+    let clock = Clock::get()?.unix_timestamp as u64;
     // Transfer tokens from user to pool
     let cpi_accounts = Transfer {
         from: ctx.accounts.user_token_account.to_account_info(),
@@ -27,11 +30,10 @@ pub fn stake_tokens(ctx: Context<Stake>, amount: u64, lockup: u16) -> Result<()>
     let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
     token::transfer(cpi_ctx, amount)?;
 
-   
     // update user stake entry
     user_stake.stake_id = user.stake_count;
     user_stake.amount = amount;
-    user_stake.staked_at = clock.unix_timestamp;
+    user_stake.staked_at = clock;
     user_stake.lockup = lockup;
     // update staking pool state
     staking_pool.total_staked += amount;
@@ -41,11 +43,11 @@ pub fn stake_tokens(ctx: Context<Stake>, amount: u64, lockup: u16) -> Result<()>
     user.staking_pool = staking_pool.key();
     user.bump = ctx.bumps.user;
     if user.total_amount == 0 {
-        user.first_staked_at = clock.unix_timestamp;
+        user.first_staked_at = clock;
     }
     user.total_amount += amount;
     user.stake_count += 1;
-    if  lockup > user.largest_lockup  {
+    if lockup > user.largest_lockup {
         user.largest_lockup = lockup;
     }
 
@@ -53,14 +55,17 @@ pub fn stake_tokens(ctx: Context<Stake>, amount: u64, lockup: u16) -> Result<()>
     Ok(())
 }
 
-pub fn request_unstake_tokens(ctx: Context<UnstakeRequest>,_index:u64) -> Result<()> {
+pub fn request_unstake_tokens(ctx: Context<UnstakeRequest>, _stake_id: u64) -> Result<()> {
     let user_stake = &mut ctx.accounts.user_stake;
-  
+
     require!(user_stake.amount > 0, StakingError::NoStakedTokens);
-    require!(user_stake.unstake_requested_at == 0, StakingError::UnstakeAlreadyRequested);
+    require!(
+        user_stake.unstake_requested_at == 0,
+        StakingError::UnstakeAlreadyRequested
+    );
     require!(user_stake.unstaked_at == 0, StakingError::AlreadyUnStaked);
 
-    user_stake.unstake_requested_at = Clock::get()?.unix_timestamp;
+    user_stake.unstake_requested_at = Clock::get()?.unix_timestamp as u64;
     msg!(
         "Unstake requested for {} tokens at {}",
         user_stake.amount,
@@ -69,34 +74,36 @@ pub fn request_unstake_tokens(ctx: Context<UnstakeRequest>,_index:u64) -> Result
     Ok(())
 }
 
-pub fn unstake_tokens(ctx: Context<Unstake>,_index:u64) -> Result<()> {
+pub fn unstake_tokens(ctx: Context<Unstake>, _stake_id: u64) -> Result<()> {
     let user = &mut ctx.accounts.user;
     let config_account = &mut ctx.accounts.config_account;
     let user_stake = &mut ctx.accounts.user_stake;
     let staking_pool = &mut ctx.accounts.staking_pool;
-    
+
     require!(user_stake.unstaked_at == 0, StakingError::AlreadyUnStaked);
 
-    let clock = Clock::get()?;
-    
-    require!(user_stake.unstake_requested_at != 0, StakingError::RequestUnstakeFirst);
-   
-    require!(clock.unix_timestamp >= user_stake.unstake_requested_at + 172800 ,StakingError::WaitFor48Hours); // 48 hours in seconds
+    let clock = Clock::get()?.unix_timestamp as u64;
+
+    require!(
+        user_stake.unstake_requested_at != 0,
+        StakingError::RequestUnstakeFirst
+    );
+
+    require!(
+        clock >= user_stake.unstake_requested_at + 172800,// 48 hours in seconds
+        StakingError::WaitFor48Hours
+    ); 
     // require!(clock.unix_timestamp >= user_stake.unstake_requested_at + 180 ,StakingError::WaitFor48Hours); // 3 mint in seconds
-  
 
     // Check if user has staked tokens
     require!(user_stake.amount > 0, StakingError::NoStakedTokens);
 
-    let min_staking_duration: i64 = (user_stake.lockup * 24 * 60 * 60).try_into().unwrap();
-    let staking_duration = clock.unix_timestamp.saturating_sub(user_stake.staked_at);
+    let min_staking_duration = (user_stake.lockup * 24 * 60 * 60).try_into().unwrap();
+    let staking_duration = clock.saturating_sub(user_stake.staked_at);
 
-
-    user_stake.unstaked_at = clock.unix_timestamp;
+    user_stake.unstaked_at = clock;
     user.total_amount -= user_stake.amount;
     staking_pool.total_staked -= user_stake.amount;
-
-
 
     let mut fee = 0;
     if staking_duration < min_staking_duration {
@@ -128,7 +135,7 @@ pub fn unstake_tokens(ctx: Context<Unstake>,_index:u64) -> Result<()> {
 
     if fee != 0 {
         // send penalty fee to staking reward account ata
-       let cpi_accounts = Transfer {
+        let cpi_accounts = Transfer {
             from: ctx.accounts.pool_token_account.to_account_info(),
             to: ctx.accounts.staking_reward_ata.to_account_info(),
             authority: staking_pool.to_account_info(),
@@ -138,64 +145,73 @@ pub fn unstake_tokens(ctx: Context<Unstake>,_index:u64) -> Result<()> {
         let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
         token::transfer(cpi_ctx, fee)?;
     }
-    
-    msg!("Unstaked {} tokens and penalty fee {}", amount_to_return,fee);
+
+    msg!(
+        "Unstaked {} tokens and penalty fee {}",
+        amount_to_return,
+        fee
+    );
     Ok(())
 }
 
-
-pub fn claim_reward(ctx: Context<ClaimReward>,_index:u64) -> Result<()> {
+pub fn claim_reward(ctx: Context<ClaimReward>, _stake_id: u64) -> Result<()> {
+    require!(
+        ctx.accounts.staking_reward_ata.amount > 0,
+        StakingError::StakingRewardInsufficientBalance
+    );
     let staking_pool = &mut ctx.accounts.staking_pool;
 
     let user = &mut ctx.accounts.user;
     let user_stake = &mut ctx.accounts.user_stake;
-    
+
     require!(user_stake.amount > 0, StakingError::NoStakedTokens);
     require!(staking_pool.total_staked > 0, StakingError::NoStakedTokens);
-    let clock = Clock::get()?;
-    let min_staking_duration = (user_stake.lockup as u64)* 24 * 60 * 60; // days in seconds
-    let mut staking_duration = 0i64;
+    let clock = Clock::get()?.unix_timestamp as u64;
+    let min_staking_duration = (user_stake.lockup as u64) * 24 * 60 * 60; // days in seconds
+    let staking_duration: u64;
     if user_stake.unstaked_at == 0 {
         // Case 1: Stake is still active
         staking_duration = clock
-        .unix_timestamp
-        .saturating_sub(user_stake.staked_at)
-        .try_into()
-        .unwrap();
-    }else{
+            .saturating_sub(user_stake.staked_at)
+            .try_into()
+            .unwrap();
+    } else {
         // Case 2: Stake is unstaked - claim any unclaimed rewards
-        staking_duration = user_stake.unstaked_at
-
-        .saturating_sub(user_stake.staked_at)
-        .try_into()
-        .unwrap();
+        staking_duration = user_stake
+            .unstaked_at
+            .saturating_sub(user_stake.staked_at)
+            .try_into()
+            .unwrap();
     }
     require!(staking_duration > 0, StakingError::NothingToClaim);
 
-     let total_periods_earned = staking_duration as u64 / min_staking_duration;
-        require!(total_periods_earned > user_stake.current_period, StakingError::StakingPeriodNotMet);
-        let claimable_periods = total_periods_earned.saturating_sub(user_stake.current_period);
-        require!(claimable_periods > 0, StakingError::StakingPeriodNotMet);
+    let total_periods_earned = staking_duration as u64 / min_staking_duration;
+    require!(
+        total_periods_earned > user_stake.current_period,
+        StakingError::StakingPeriodNotMet
+    );
+    let claimable_periods = total_periods_earned.saturating_sub(user_stake.current_period);
+    require!(claimable_periods > 0, StakingError::StakingPeriodNotMet);
 
-        user_stake.current_period = total_periods_earned;
+    user_stake.current_period = total_periods_earned;
 
-        let reward_percentage = staking_pool.stake_lockup_reward_array
-            .iter()
-            .find(|x| x.lockup_days == user_stake.lockup)
-            .ok_or(StakingError::WrongStakingPackage)?
-            .reward_bps;
+    let reward_percentage = staking_pool
+        .stake_lockup_reward_array
+        .iter()
+        .find(|x| x.lockup_days == user_stake.lockup)
+        .ok_or(StakingError::WrongStakingPackage)?
+        .reward_bps;
 
-       let reward_amount = (claimable_periods * (user_stake.amount as u64) * reward_percentage as u64) / 1000;
+    let reward_amount =
+        (claimable_periods * (user_stake.amount as u64) * reward_percentage as u64) / 1000;
     require!(reward_amount > 0, StakingError::NothingToClaim);
 
-
     let seeds: &[&[u8]] = &[
-        b"staking_reward",         
+        b"staking_reward",
         staking_pool.token_mint.as_ref(),
-        &[ctx.bumps.staking_reward]
+        &[ctx.bumps.staking_reward],
     ];
     let signer = &[seeds];
-
 
     // Transfer reward tokens to user
     let cpi_accounts = Transfer {
@@ -214,17 +230,35 @@ pub fn claim_reward(ctx: Context<ClaimReward>,_index:u64) -> Result<()> {
     Ok(())
 }
 
-
-pub fn set_reward_percentage(ctx: Context<SetReward>,
-    reward1:u16, lockup1:u16,vote_power1:u16, // reward = 50 (5%), lockup = 30 (days), vote_power = 500 (0.5x) 
-    reward2:u16, lockup2:u16,vote_power2:u16,
-    reward3:u16, lockup3:u16,vote_power3:u16,
-)->Result<()>{
+pub fn set_reward_percentage(
+    ctx: Context<SetReward>,
+    reward1: u16,
+    lockup1: u16,
+    vote_power1: u16, // reward = 50 (5%), lockup = 30 (days), vote_power = 500 (0.5x)
+    reward2: u16,
+    lockup2: u16,
+    vote_power2: u16,
+    reward3: u16,
+    lockup3: u16,
+    vote_power3: u16,
+) -> Result<()> {
     let staking_pool = &mut ctx.accounts.staking_pool;
-    staking_pool.stake_lockup_reward_array[0] = LockupReward { lockup_days: lockup1, reward_bps: reward1, vote_power: vote_power1 };   
-    staking_pool.stake_lockup_reward_array[1] = LockupReward { lockup_days: lockup2, reward_bps: reward2, vote_power: vote_power2 };   
-    staking_pool.stake_lockup_reward_array[2] = LockupReward { lockup_days: lockup3, reward_bps: reward3, vote_power: vote_power3 };
-     
+    staking_pool.stake_lockup_reward_array[0] = LockupReward {
+        lockup_days: lockup1,
+        reward_bps: reward1,
+        vote_power: vote_power1,
+    };
+    staking_pool.stake_lockup_reward_array[1] = LockupReward {
+        lockup_days: lockup2,
+        reward_bps: reward2,
+        vote_power: vote_power2,
+    };
+    staking_pool.stake_lockup_reward_array[2] = LockupReward {
+        lockup_days: lockup3,
+        reward_bps: reward3,
+        vote_power: vote_power3,
+    };
+
     Ok(())
 }
 #[derive(Accounts)]
@@ -248,7 +282,7 @@ pub struct StakeInitialize<'info> {
 
     #[account(mut)]
     pub authority: Signer<'info>,
-  #[account(
+    #[account(
         mut,
         seeds=[b"config".as_ref()],
         bump
@@ -256,11 +290,13 @@ pub struct StakeInitialize<'info> {
     pub config_account: Account<'info, ConfigAccount>,
     #[account(mut,
         constraint = config_account.config.chai_token_mint == token_mint.key(),
-    )]      
+    )]
     pub token_mint: Account<'info, Mint>,
-     #[account(mut,
+    #[account(mut,
         constraint = pool_token_account.mint == token_mint.key(),
-    )]      
+        constraint = pool_token_account.owner == staking_pool.key()
+
+    )]
     pub pool_token_account: Account<'info, TokenAccount>,
     pub system_program: Program<'info, System>,
 }
@@ -283,11 +319,9 @@ pub struct SetReward<'info> {
     #[account(
         mut,
         constraint = admin.key() == config_account.config.admin,
-    )]  
+    )]
     pub admin: Signer<'info>,
-
 }
-
 
 #[derive(Accounts)]
 pub struct Stake<'info> {
@@ -313,7 +347,7 @@ pub struct Stake<'info> {
     )]
     pub user: Account<'info, UserStakeInfo>,
     #[account(
-        init,
+        init_if_needed,
         payer = user_authority,
         space = 8 + std::mem::size_of::<UserStakesEntry>(),
         seeds = [b"user_stake".as_ref(), user_authority.key().as_ref(),user.stake_count.to_le_bytes().as_ref()],
@@ -342,7 +376,7 @@ pub struct Stake<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(index:u64)]
+#[instruction(stake_id:u64)]
 pub struct Unstake<'info> {
     #[account(
         mut,
@@ -365,9 +399,9 @@ pub struct Unstake<'info> {
         constraint = user.staking_pool == staking_pool.key()
     )]
     pub user: Account<'info, UserStakeInfo>,
-  #[account(
+    #[account(
         mut,
-        seeds = [b"user_stake".as_ref(), user_authority.key().as_ref(),index.to_le_bytes().as_ref()],
+        seeds = [b"user_stake".as_ref(), user_authority.key().as_ref(),stake_id.to_le_bytes().as_ref()],
         bump
     )]
     pub user_stake: Account<'info, UserStakesEntry>,
@@ -392,15 +426,11 @@ pub struct Unstake<'info> {
     )]
     pub pool_token_account: Account<'info, TokenAccount>,
 
- 
-
     pub token_program: Program<'info, Token>,
 }
 
-
-
 #[derive(Accounts)]
-#[instruction(index:u64)]
+#[instruction(stake_id:u64)]
 pub struct UnstakeRequest<'info> {
     #[account(
         mut,
@@ -414,9 +444,9 @@ pub struct UnstakeRequest<'info> {
         bump = staking_pool.bump,
     )]
     pub staking_pool: Account<'info, StakingPool>,
-  #[account(
+    #[account(
     mut,
-        seeds = [b"user_stake".as_ref(), user_authority.key().as_ref(),index.to_le_bytes().as_ref()],
+        seeds = [b"user_stake".as_ref(), user_authority.key().as_ref(),stake_id.to_le_bytes().as_ref()],
         bump
     )]
     pub user_stake: Account<'info, UserStakesEntry>,
@@ -433,11 +463,10 @@ pub struct UnstakeRequest<'info> {
     pub user_authority: Signer<'info>,
 }
 
-
 #[derive(Accounts)]
-#[instruction(index:u64)]
+#[instruction(stake_id:u64)]
 pub struct ClaimReward<'info> {
-          #[account(
+    #[account(
             mut,
             seeds=[b"config".as_ref()],
             bump
@@ -457,8 +486,8 @@ pub struct ClaimReward<'info> {
         constraint = user.staking_pool == staking_pool.key()
     )]
     pub user: Account<'info, UserStakeInfo>,
-  #[account(
-        seeds = [b"user_stake".as_ref(), user_authority.key().as_ref(),index.to_le_bytes().as_ref()],
+    #[account(
+        seeds = [b"user_stake".as_ref(), user_authority.key().as_ref(),stake_id.to_le_bytes().as_ref()],
         bump
     )]
     pub user_stake: Account<'info, UserStakesEntry>,
@@ -480,7 +509,7 @@ pub struct ClaimReward<'info> {
     )]
     pub staking_reward_ata: Account<'info, TokenAccount>,
 
-     #[account(
+    #[account(
         mut,
         seeds = [b"staking_reward".as_ref(),staking_pool.token_mint.key().as_ref()],
         bump
@@ -492,9 +521,9 @@ pub struct ClaimReward<'info> {
 
 #[derive(Clone, Copy, Debug, AnchorSerialize, AnchorDeserialize)]
 pub struct LockupReward {
-    pub lockup_days: u16,    // Number of days for lockup
-    pub reward_bps: u16,     // Reward percentage in basis points (500 = 5%)
-    pub vote_power:u16
+    pub lockup_days: u16, // Number of days for lockup
+    pub reward_bps: u16,  // Reward percentage in basis points (500 = 5%)
+    pub vote_power: u16,
 }
 
 #[account]
@@ -506,39 +535,36 @@ pub struct StakingPool {
     pub total_staked: u64,
     pub reward_issued: u64,
     pub bump: u8,
-    pub stake_lockup_reward_array: [LockupReward; 3], 
+    pub stake_lockup_reward_array: [LockupReward; 3],
 }
 
 #[account]
-pub struct StakingRewards {
-}
+pub struct StakingRewards {}
 
 #[account]
 pub struct UserStakeInfo {
     pub authority: Pubkey,
     pub staking_pool: Pubkey,
-    pub first_staked_at: i64,
-    pub largest_lockup: u16,
 
-    pub total_amount: u64,
-    pub reward_issued: u64,
+    pub first_staked_at: u64, // @audit not useful, need to think something else
+    pub largest_lockup: u16, // @audit not useful, need to think something else
+
+    pub total_amount: u64, // total staked amount of user
+    pub reward_issued: u64,// total reward amount issued claimed by user
+    pub stake_count: u64,
     pub bump: u8,
-
-    pub stake_count:u64
 }
-
 
 #[account]
 pub struct UserStakesEntry {
-    pub stake_id:u64,
+    pub stake_id: u64,
     pub amount: u64,
-    pub staked_at: i64,
+    pub staked_at: u64,
     pub lockup: u16,
-    pub unstake_requested_at: i64,
-    pub current_period:u64,
-    pub unstaked_at: i64,
+    pub unstake_requested_at: u64,
+    pub current_period: u64,
+    pub unstaked_at: u64,
 }
-
 
 #[error_code]
 pub enum StakingError {
@@ -566,5 +592,6 @@ pub enum StakingError {
     InvalidStakeId,
     #[msg("Nothing To Claim")]
     NothingToClaim,
+    #[msg("Staking Reward Insufficient Balance")]
+    StakingRewardInsufficientBalance,
 }
-
