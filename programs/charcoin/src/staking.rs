@@ -289,7 +289,7 @@ pub struct StakeInitialize<'info> {
     )]
     pub config_account: Account<'info, ConfigAccount>,
     #[account(mut,
-        constraint = config_account.config.chai_token_mint == token_mint.key(),
+        constraint = config_account.config.char_token_mint == token_mint.key(),
     )]
     pub token_mint: Account<'info, Mint>,
     #[account(mut,

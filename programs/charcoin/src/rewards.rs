@@ -15,63 +15,63 @@ pub struct ReleaseMonthlyFunds<'info> {
     ///  Treasury token account holding funds to be distributed.
     #[account(
         mut,
-        constraint = treasury_ata.mint == config_account.config.chai_token_mint
+        constraint = treasury_ata.mint == config_account.config.char_token_mint
     )]
     pub treasury_ata: Account<'info, TokenAccount>,
     #[account(
         mut,
-        constraint = staking_reward_ata.mint == config_account.config.chai_token_mint
+        constraint = staking_reward_ata.mint == config_account.config.char_token_mint
     )]
     pub staking_reward_ata: Account<'info, TokenAccount>,
     #[account(
         mut,
-        constraint = monthly_top_tier_ata.mint == config_account.config.chai_token_mint
+        constraint = monthly_top_tier_ata.mint == config_account.config.char_token_mint
     )]
     pub monthly_top_tier_ata: Account<'info, TokenAccount>,
     #[account(
         mut,
-        constraint = monthly_charity_lottery_ata.mint == config_account.config.chai_token_mint
+        constraint = monthly_charity_lottery_ata.mint == config_account.config.char_token_mint
     )]
     pub monthly_charity_lottery_ata: Account<'info, TokenAccount>,
     #[account(
         mut,
-        constraint = annual_top_tier_ata.mint == config_account.config.chai_token_mint
+        constraint = annual_top_tier_ata.mint == config_account.config.char_token_mint
     )]
     pub annual_top_tier_ata: Account<'info, TokenAccount>,
     #[account(
         mut,
-        constraint = annual_charity_lottery_ata.mint == config_account.config.chai_token_mint
+        constraint = annual_charity_lottery_ata.mint == config_account.config.char_token_mint
     )]
     pub annual_charity_lottery_ata: Account<'info, TokenAccount>,
     #[account(mut,
-        constraint = monthly_one_time_causes_ata.mint == config_account.config.chai_token_mint
+        constraint = monthly_one_time_causes_ata.mint == config_account.config.char_token_mint
 
     )]
     pub monthly_one_time_causes_ata: Account<'info, TokenAccount>,
     #[account(
         mut,
-        constraint = monthly_infinite_impact_causes_ata.mint == config_account.config.chai_token_mint
+        constraint = monthly_infinite_impact_causes_ata.mint == config_account.config.char_token_mint
 
     )]
     pub monthly_infinite_impact_causes_ata: Account<'info, TokenAccount>,
     #[account(
         mut,
-        constraint = annual_one_time_causes_ata.mint == config_account.config.chai_token_mint
+        constraint = annual_one_time_causes_ata.mint == config_account.config.char_token_mint
 
     )]
     pub annual_one_time_causes_ata: Account<'info, TokenAccount>,
     #[account(
         mut,
-        constraint = annual_infinite_impact_causes_ata.mint == config_account.config.chai_token_mint
+        constraint = annual_infinite_impact_causes_ata.mint == config_account.config.char_token_mint
 
     )]
     pub annual_infinite_impact_causes_ata: Account<'info, TokenAccount>,
 
     #[account(
         mut,
-        constraint = chai_funds_ata.mint == config_account.config.chai_token_mint
+        constraint = char_funds_ata.mint == config_account.config.char_token_mint
     )]
-    pub chai_funds_ata: Account<'info, TokenAccount>,
+    pub char_funds_ata: Account<'info, TokenAccount>,
 
     /// will use https://squads.xyz/ for multi sig
     /// Authority for treasury withdrawals.
@@ -184,7 +184,7 @@ pub fn release_funds(ctx: Context<ReleaseMonthlyFunds>, total_amount: u64) -> Re
         .checked_div(1000)
         .unwrap();
 
-    let chai_fund = donation_system
+    let char_fund = donation_system
         .checked_mul(100)
         .unwrap()
         .checked_div(1000)
@@ -308,17 +308,17 @@ pub fn release_funds(ctx: Context<ReleaseMonthlyFunds>, total_amount: u64) -> Re
         annual_infinite_impact_causes_percentage,
     )?;
 
-    // Transfer to chai funds
+    // Transfer to char funds
     token::transfer(
         CpiContext::new(
             ctx.accounts.token_program.to_account_info(),
             Transfer {
                 from: ctx.accounts.treasury_ata.to_account_info(),
-                to: ctx.accounts.chai_funds_ata.to_account_info(),
+                to: ctx.accounts.char_funds_ata.to_account_info(),
                 authority: ctx.accounts.treasury_authority.to_account_info(),
             },
         ),
-        chai_fund,
+        char_fund,
     )?;
 
     Ok(())

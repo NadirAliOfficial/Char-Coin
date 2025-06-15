@@ -28,7 +28,7 @@ pub struct DistributeMarketingFunds<'info> {
 
     /// This is the source token account from which funds are withdrawn. Its validity is managed by the token program.
     #[account(mut,
-        constraint = source_ata.mint == config_account.config.chai_token_mint, // Ensure the mint matches the config
+        constraint = source_ata.mint == config_account.config.char_token_mint, // Ensure the mint matches the config
         constraint = source_ata.owner == config_account.config.treasury_authority// Ensure the owner matches the marketing wallet
     )]
     pub source_ata: Account<'info, TokenAccount>,
@@ -36,7 +36,7 @@ pub struct DistributeMarketingFunds<'info> {
     #[account(
         mut,
         constraint = dest_wallet1_ata.owner == config_account.config.marketing_wallet_1 ,// Ensure the owner matches the marketing wallet
-        constraint = dest_wallet1_ata.mint == config_account.config.chai_token_mint
+        constraint = dest_wallet1_ata.mint == config_account.config.char_token_mint
 
     )]
     pub dest_wallet1_ata: Account<'info, TokenAccount>,
@@ -44,13 +44,13 @@ pub struct DistributeMarketingFunds<'info> {
     #[account(
         mut,
         constraint = dest_wallet2_ata.owner == config_account.config.marketing_wallet_2,// Ensure the owner matches the marketing wallet
-        constraint = dest_wallet2_ata.mint == config_account.config.chai_token_mint
+        constraint = dest_wallet2_ata.mint == config_account.config.char_token_mint
     )]
     pub dest_wallet2_ata: Account<'info, TokenAccount>,
     #[account(
         mut,
         constraint = death_wallet_ata.owner == config_account.config.death_wallet,// Ensure the owner matches the marketing wallet
-        constraint = death_wallet_ata.mint == config_account.config.chai_token_mint,// Ensure the owner matches the marketing wallet
+        constraint = death_wallet_ata.mint == config_account.config.char_token_mint,// Ensure the owner matches the marketing wallet
     )]
     pub death_wallet_ata: Account<'info, TokenAccount>,
     pub token_program: Program<'info, Token>,

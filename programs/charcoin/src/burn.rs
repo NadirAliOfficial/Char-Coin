@@ -10,7 +10,7 @@ pub struct ExecuteBuyback<'info> {
         mut,
         seeds=[b"config".as_ref()],
         bump
-      )]
+    )]
     pub config_account: Account<'info, ConfigAccount>,
     #[account(mut)]
     pub mint: Account<'info, Mint>,

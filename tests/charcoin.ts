@@ -44,7 +44,7 @@ describe("char coin test", () => {
  
 
 
-  let chaiFunds = anchor.web3.Keypair.generate()
+  let charFunds = anchor.web3.Keypair.generate()
   let marketingWallet1 = anchor.web3.Keypair.generate()
   let marketingWallet2 = anchor.web3.Keypair.generate()
   let deathWallet = anchor.web3.Keypair.generate()
@@ -168,7 +168,7 @@ describe("char coin test", () => {
     }
     // Define configuration parameters
     const config = {
-      chaiFunds: chaiFunds.publicKey,
+      charFunds: charFunds.publicKey,
       marketingWallet1: marketingWallet1.publicKey,
       marketingWallet2: marketingWallet2.publicKey,
       admin: admin.publicKey,
@@ -182,7 +182,7 @@ describe("char coin test", () => {
       annualInfiniteImpactCausesWallet:annualInfiniteImpactCausesWallet.publicKey,
       deathWallet: deathWallet.publicKey,
       treasuryAuthority: treasuryAuthority.publicKey,
-      chaiTokenMint:tokenMint,
+      charTokenMint:tokenMint,
     };
     await program.methods.initialize(config)
       .accounts(context)
@@ -673,11 +673,11 @@ try{
   it("release Funds", async () => {
 
 
-    let chaiFundsAta = await getOrCreateAssociatedTokenAccount(
+    let charFundsAta = await getOrCreateAssociatedTokenAccount(
       program.provider.connection,
       admin,
       tokenMint,
-      chaiFunds.publicKey,
+      charFunds.publicKey,
       false
     );
     let monthlyTopTierWalletAta = await getOrCreateAssociatedTokenAccount(
@@ -759,7 +759,7 @@ try{
         stakingPool: stakingPool,
         treasuryAuthority: treasuryAuthority.publicKey,
         treasuryAta: treasuryAuthorityAta.address,
-        chaiFundsAta: chaiFundsAta.address,
+        charFundsAta: charFundsAta.address,
         monthlyTopTierAta:monthlyTopTierWalletAta.address,
         annualTopTierAta:annualTopTierWalletAta.address,
         monthlyCharityLotteryAta:monthlyCharityLotteryWalletAta.address,

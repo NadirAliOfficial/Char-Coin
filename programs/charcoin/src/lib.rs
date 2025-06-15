@@ -209,6 +209,10 @@ pub mod charcoin {
         min_stake_duration_voting: u64,
         early_unstake_penalty: u64,
     ) -> Result<()> {
+          require!(
+            ctx.accounts.config.config.halted == false,
+            ErrorCode::ProgramIsHalted
+        );
         let config = &mut ctx.accounts.config;
         config.config.min_governance_stake = min_governance_stake;
         config.config.min_stake_duration_voting = min_stake_duration_voting;
@@ -227,6 +231,10 @@ pub mod charcoin {
         lockup3: u16,
         vote_power3: u16,
     ) -> Result<()> {
+          require!(
+            ctx.accounts.config_account.config.halted == false,
+            ErrorCode::ProgramIsHalted
+        );
         staking::set_reward_percentage(
             ctx,
             reward1,
@@ -245,9 +253,8 @@ pub mod charcoin {
 /// Stores global configuration for CHAR Coin.
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
 pub struct Config {
-    // The fields below are used in your code, so we add them to avoid errors.
     pub admin: Pubkey,
-    pub chai_token_mint: Pubkey, // Chai Token Mint
+    pub char_token_mint: Pubkey, // Char Token Mint
     // Reward System
     // Monthly Rewards Classification (50%)
     pub monthly_top_tier_wallet: Pubkey,
@@ -264,17 +271,16 @@ pub struct Config {
     pub annual_one_time_causes_wallet: Pubkey,
     pub annual_infinite_impact_causes_wallet: Pubkey,
     // Crisis Classification (10%)
-    // Chai Wallet
-    pub chai_funds: Pubkey,
+    pub char_funds: Pubkey,// Char Wallet
     pub marketing_wallet_1: Pubkey,
     pub marketing_wallet_2: Pubkey,
     pub death_wallet: Pubkey,
-    pub treasury_authority: Pubkey, // chai Token fee wallet
-    pub halted: bool,
-    /// emergency state that indicates if the contract is halted.
-    pub next_proposal_id: u64,
-    pub next_charity_id: u64,
-    pub total_burned: u64,
+    pub treasury_authority: Pubkey, // char Token fee wallet
+    pub halted: bool, // emergency state that indicates if the contract is halted.
+    
+    pub next_proposal_id: u64, // id's for governance proposals
+    pub next_charity_id: u64,// id's for charity donation proposals
+    pub total_burned: u64, // total amount of char tokens burn by death wallet
     pub min_governance_stake: u64, // Minimum stake required to participate in governance
     pub min_stake_duration_voting: u64, // Minimum staking period required for a user to be eligible to vote
     pub early_unstake_penalty: u64,     // 100 = 10%
