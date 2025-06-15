@@ -208,7 +208,8 @@ describe("char coin test", () => {
         // reward       , lockup          ,   vote power      
         new anchor.BN(50),new anchor.BN(1),new anchor.BN(500), //  5 , 1, 0.5 
         new anchor.BN(70),new anchor.BN(90),new anchor.BN(1000), // 7, 90, 1
-        new anchor.BN(150),new anchor.BN(180),new anchor.BN(3000)  // 15, 180, 3
+        new anchor.BN(150),new anchor.BN(180),new anchor.BN(3000),  // 15, 180, 3
+        new anchor.BN(180),new anchor.BN(180),new anchor.BN(3000)  // 15, 180, 3
 
       )
       .accounts({

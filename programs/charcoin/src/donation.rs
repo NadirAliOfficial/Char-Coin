@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::clock::Clock;
 
-use crate::{ConfigAccount, StakingPool, UserStakeInfo};
+use crate::{ConfigAccount, UserStakeInfo};
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Debug)]
 pub enum CharityStatus {
@@ -77,23 +77,26 @@ pub fn register_charity(
 /// Casts vote for a charity
 pub fn cast_vote(ctx: Context<CastVote>, _charity_id: u64) -> Result<()> {
     let config_account = &mut ctx.accounts.config_account;
-    let staking_pool = &mut ctx.accounts.staking_pool;
     let vote_record = &mut ctx.accounts.vote_record;
     let charity = &mut ctx.accounts.charity;
 
     let clock = Clock::get()?.unix_timestamp as u64;
-    let user = &ctx.accounts.user;
+    let user = &mut ctx.accounts.user;
     let amount_staked = user.total_amount;
     if vote_record.voted {
         return Err(CharityError::AlreadyVoted.into());
     }
 
+
+    require!(user.last_vote_time < charity.start_time,CharityError::VotingNotEligible);
+
     require!(
-        amount_staked >= config_account.config.min_governance_stake, // Minimum stake to vote
+        amount_staked >= config_account.config.min_governance_stake, // Minimum stake to vote 
         CharityError::VotingNotEligible
     );
-    require!( // @audit : Ensure user has staked for at least 15 days
-        clock - user.first_staked_at >= config_account.config.min_stake_duration_voting, // 15 days
+    // Ensure user has staked for at least 15 days
+    require!( 
+        user.eligible_at > 0 && clock - user.eligible_at >= config_account.config.min_stake_duration_voting, // 15 days
         CharityError::VotingNotEligible
     );
     // Ensure voting is active.
@@ -101,16 +104,8 @@ pub fn cast_vote(ctx: Context<CastVote>, _charity_id: u64) -> Result<()> {
         clock >= charity.start_time && clock <= charity.end_time,
         CharityError::VotingNotActive
     );
-    // @audit : how to determine the vote power ? which lockup to use ?
-    let vote_power = staking_pool
-        .stake_lockup_reward_array
-        .iter()
-        .find(|x| x.lockup_days == user.largest_lockup)
-        .unwrap()
-        .vote_power;
-    //  voting_amount = 500 * 10e6 / 1000    e.g 500 = 0.5, 1000 = 1
-    let vote_weight = (vote_power as u128 * amount_staked as u128 / 1000) as u64;
-
+    user.last_vote_time = clock;
+    let vote_weight = user.voting_power;
     vote_record.charity = charity.key();
     vote_record.voter = ctx.accounts.voter.key();
     vote_record.vote_weight = vote_weight;
@@ -217,7 +212,6 @@ pub struct CastVote<'info> {
     )]
     pub user: Account<'info, UserStakeInfo>,
 
-    pub staking_pool: Account<'info, StakingPool>,
 
     #[account(mut)]
     pub voter: Signer<'info>,

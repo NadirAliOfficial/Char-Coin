@@ -230,6 +230,9 @@ pub mod charcoin {
         reward3: u16,
         lockup3: u16,
         vote_power3: u16,
+        reward4: u16,
+        lockup4: u16,
+        vote_power4: u16,
     ) -> Result<()> {
           require!(
             ctx.accounts.config_account.config.halted == false,
@@ -246,6 +249,9 @@ pub mod charcoin {
             reward3,
             lockup3,
             vote_power3,
+            reward4,
+            lockup4,
+            vote_power4,
         )
     }
 }

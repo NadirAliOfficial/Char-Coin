@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::clock::Clock;
 
-use crate::{ConfigAccount, StakingPool, UserStakeInfo};
+use crate::{ConfigAccount, UserStakeInfo};
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Debug)]
 pub enum ProposalStatus {
@@ -70,7 +70,6 @@ pub fn vote_on_proposal(
 ) -> Result<()> {
     let current_time = Clock::get()?.unix_timestamp as u64;
     let proposal: &mut Account<'_, Proposal> = &mut ctx.accounts.proposal;
-    let staking_pool = &mut ctx.accounts.staking_pool;
     let config_account = &mut ctx.accounts.config_account;
     let user = &ctx.accounts.user;
     let user_vote_account = &mut ctx.accounts.user_vote_account;
@@ -95,23 +94,16 @@ pub fn vote_on_proposal(
         GovernanceError::VotingNotEligible
     );
 
-    require!(// @audit : Ensure user has staked for at least 15 days
-        current_time - user.first_staked_at >= config_account.config.min_stake_duration_voting, // 15 days
+   // Ensure user has staked for at least 15 days
+    require!( 
+        user.eligible_at > 0 && current_time - user.eligible_at >= config_account.config.min_stake_duration_voting, // 15 days
         GovernanceError::VotingNotEligible
     );
     require!(
         current_time < proposal.end_time,
         GovernanceError::VotingPeriodEnded
     );
-// @audit : how to determine the vote power ? which lockup to use ?
-    let vote_power = staking_pool
-        .stake_lockup_reward_array
-        .iter()
-        .find(|x| x.lockup_days == user.largest_lockup)
-        .unwrap()
-        .vote_power;
-    //  voting_amount = 500 * 10e6 / 1000    e.g 500 = 0.5, 1000 = 1
-    let voting_amount = (vote_power as u128 * amount_staked as u128 / 1000) as u64;
+    let voting_amount = user.voting_power;
 
     if vote_choice {
         proposal.yes_votes = proposal
@@ -224,12 +216,7 @@ pub struct VoteOnProposal<'info> {
         bump
     )]
     pub user_vote_account: Account<'info, Vote>,
-    #[account(
-        mut,
-        seeds = [b"staking_pool".as_ref(), staking_pool.token_mint.as_ref()],
-        bump = staking_pool.bump,
-    )]
-    pub staking_pool: Account<'info, StakingPool>,
+ 
     pub system_program: Program<'info, System>,
 }
 

@@ -3,10 +3,13 @@ use anchor_lang::solana_program::clock::Clock;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
 use crate::ConfigAccount;
+const FOURTY_EIGHT_HOURS_IN_SECONDS:u32 = 172800;
+const ONE_DAY_IN_SECONDS:u32 = 86400;
 
 pub fn stake_tokens(ctx: Context<Stake>, amount: u64, lockup: u16) -> Result<()> {
     require!(amount > 0, StakingError::NoStakedTokens);
     let staking_pool = &mut ctx.accounts.staking_pool;
+    let config_account = &mut ctx.accounts.config_account;
     let user = &mut ctx.accounts.user;
     let user_stake = &mut ctx.accounts.user_stake;
 
@@ -42,18 +45,36 @@ pub fn stake_tokens(ctx: Context<Stake>, amount: u64, lockup: u16) -> Result<()>
     user.authority = ctx.accounts.user_authority.key();
     user.staking_pool = staking_pool.key();
     user.bump = ctx.bumps.user;
-    if user.total_amount == 0 {
-        user.first_staked_at = clock;
+
+    if user.total_amount < config_account.config.min_governance_stake &&
+     user.total_amount + amount >= config_account.config.min_governance_stake{
+        user.eligible_at = clock;
     }
+    
     user.total_amount += amount;
     user.stake_count += 1;
-    if lockup > user.largest_lockup {
-        user.largest_lockup = lockup;
-    }
+
+    // if lockup > user.largest_lockup {
+    //     user.largest_lockup = lockup;
+    // }
+
+        let vote_power = staking_pool
+    .stake_lockup_reward_array
+    .iter()
+    .find(|x| x.lockup_days == lockup)
+    .unwrap()
+    .vote_power;
+    //  voting_amount = 500 * 10e6 / 1000    e.g 500 = 0.5, 1000 = 1
+    let vote_weight = (vote_power as u128 * amount as u128 / 1000) as u64;
+
+    user.voting_power += vote_weight;
+
 
     msg!("Staked {} tokens", amount);
     Ok(())
 }
+
+
 
 pub fn request_unstake_tokens(ctx: Context<UnstakeRequest>, _stake_id: u64) -> Result<()> {
     let user_stake = &mut ctx.accounts.user_stake;
@@ -88,17 +109,17 @@ pub fn unstake_tokens(ctx: Context<Unstake>, _stake_id: u64) -> Result<()> {
         user_stake.unstake_requested_at != 0,
         StakingError::RequestUnstakeFirst
     );
-
+    // unstake must be requested at least 48 hours in advance..
     require!(
-        clock >= user_stake.unstake_requested_at + 172800,// 48 hours in seconds
+        clock >= user_stake.unstake_requested_at + FOURTY_EIGHT_HOURS_IN_SECONDS as u64, 
         StakingError::WaitFor48Hours
     ); 
-    // require!(clock.unix_timestamp >= user_stake.unstake_requested_at + 180 ,StakingError::WaitFor48Hours); // 3 mint in seconds
+    
 
     // Check if user has staked tokens
     require!(user_stake.amount > 0, StakingError::NoStakedTokens);
 
-    let min_staking_duration = (user_stake.lockup * 24 * 60 * 60).try_into().unwrap();
+    let min_staking_duration = (user_stake.lockup as u64 * ONE_DAY_IN_SECONDS as u64).try_into().unwrap();
     let staking_duration = clock.saturating_sub(user_stake.staked_at);
 
     user_stake.unstaked_at = clock;
@@ -112,6 +133,21 @@ pub fn unstake_tokens(ctx: Context<Unstake>, _stake_id: u64) -> Result<()> {
     }
 
     let amount_to_return = user_stake.amount - fee;
+
+
+
+        let vote_power = staking_pool
+    .stake_lockup_reward_array
+    .iter()
+    .find(|x| x.lockup_days == user_stake.lockup)
+    .unwrap()
+    .vote_power;
+
+    let vote_weight = (vote_power as u128 * user_stake.amount as u128 / 1000) as u64;
+
+    user.voting_power -= vote_weight;
+
+
 
     // Create PDA signer seeds
     let pool_seeds = &[
@@ -167,7 +203,7 @@ pub fn claim_reward(ctx: Context<ClaimReward>, _stake_id: u64) -> Result<()> {
     require!(user_stake.amount > 0, StakingError::NoStakedTokens);
     require!(staking_pool.total_staked > 0, StakingError::NoStakedTokens);
     let clock = Clock::get()?.unix_timestamp as u64;
-    let min_staking_duration = (user_stake.lockup as u64) * 24 * 60 * 60; // days in seconds
+    let min_staking_duration = (user_stake.lockup as u64) * ONE_DAY_IN_SECONDS as u64; // days in seconds
     let staking_duration: u64;
     if user_stake.unstaked_at == 0 {
         // Case 1: Stake is still active
@@ -241,6 +277,9 @@ pub fn set_reward_percentage(
     reward3: u16,
     lockup3: u16,
     vote_power3: u16,
+    reward4: u16,
+    lockup4: u16,
+    vote_power4: u16,
 ) -> Result<()> {
     let staking_pool = &mut ctx.accounts.staking_pool;
     staking_pool.stake_lockup_reward_array[0] = LockupReward {
@@ -257,6 +296,11 @@ pub fn set_reward_percentage(
         lockup_days: lockup3,
         reward_bps: reward3,
         vote_power: vote_power3,
+    };
+    staking_pool.stake_lockup_reward_array[3] = LockupReward {
+        lockup_days: lockup4,
+        reward_bps: reward4,
+        vote_power: vote_power4,
     };
 
     Ok(())
@@ -535,7 +579,7 @@ pub struct StakingPool {
     pub total_staked: u64,
     pub reward_issued: u64,
     pub bump: u8,
-    pub stake_lockup_reward_array: [LockupReward; 3],
+    pub stake_lockup_reward_array: [LockupReward; 4],
 }
 
 #[account]
@@ -546,13 +590,14 @@ pub struct UserStakeInfo {
     pub authority: Pubkey,
     pub staking_pool: Pubkey,
 
-    pub first_staked_at: u64, // @audit not useful, need to think something else
-    pub largest_lockup: u16, // @audit not useful, need to think something else
+    pub eligible_at: u64, 
+    pub voting_power: u64, 
 
     pub total_amount: u64, // total staked amount of user
     pub reward_issued: u64,// total reward amount issued claimed by user
     pub stake_count: u64,
     pub bump: u8,
+    pub last_vote_time:u64
 }
 
 #[account]
