@@ -27,6 +27,7 @@ pub struct DistributeMarketingFunds<'info> {
 
     /// CHECK: This is the source token account from which funds are withdrawn. Its validity is managed by the token program.
     #[account(mut,
+        constraint = source_ata.mint == config_account.config.chai_token_mint, // Ensure the mint matches the config
         constraint = source_ata.owner == config_account.config.treasury_authority// Ensure the owner matches the marketing wallet
     )]
     pub source_ata: Account<'info, TokenAccount>,

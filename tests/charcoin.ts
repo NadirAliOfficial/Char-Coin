@@ -80,7 +80,7 @@ describe("char coin test", () => {
     );
 
     [stakingRewardAccount] = anchor.web3.PublicKey.findProgramAddressSync(
-      [Buffer.from('staking_reward')],
+      [Buffer.from('staking_reward'),tokenMint.toBuffer()],
       program.programId
     );
     userAta = await getOrCreateAssociatedTokenAccount(
@@ -182,6 +182,7 @@ describe("char coin test", () => {
       annualInfiniteImpactCausesWallet:annualInfiniteImpactCausesWallet.publicKey,
       deathWallet: deathWallet.publicKey,
       treasuryAuthority: treasuryAuthority.publicKey,
+      chaiTokenMint:tokenMint,
     };
     await program.methods.initialize(config)
       .accounts(context)
@@ -522,7 +523,6 @@ describe("char coin test", () => {
         .signers([user])
         .rpc();
     } catch (e) {
-
       if (e instanceof anchor.AnchorError) {
         assert(e.message.includes("StakingPeriodNotMet"))
       } else {
@@ -608,7 +608,6 @@ try{
       if (e instanceof anchor.AnchorError) {
         assert(e.message.includes("ProgramIsHalted"))
       } else {
-        console.log(e)
         assert(false);
       }
     }
@@ -786,7 +785,7 @@ it("buyback and burn", async () => {
     let data = await program.account.configAccount.fetch(configAccount[0])
 
     const [proposalAccount] = anchor.web3.PublicKey.findProgramAddressSync(
-      [Buffer.from('proposal'), user.publicKey.toBuffer(), data.config.nextProposalId.toArrayLike(Buffer, "le", 8)],
+      [Buffer.from('proposal'), data.config.nextProposalId.toArrayLike(Buffer, "le", 8)],
       program.programId
     );
     // Proposal details
@@ -808,7 +807,7 @@ it("buyback and burn", async () => {
   it("voteOnProposal", async () => {
     try {
       const [proposalAccount] = anchor.web3.PublicKey.findProgramAddressSync(
-        [Buffer.from('proposal'), user.publicKey.toBuffer(), new anchor.BN(0).toArrayLike(Buffer, "le", 8)],
+        [Buffer.from('proposal'), new anchor.BN(0).toArrayLike(Buffer, "le", 8)],
         program.programId
       );
 
@@ -839,11 +838,11 @@ it("buyback and burn", async () => {
   it("finalizeProposal", async () => {
     await sleep(10000); // Wait for proposal duration to pass
     const [proposalAccount] = anchor.web3.PublicKey.findProgramAddressSync(
-      [Buffer.from('proposal'), user.publicKey.toBuffer(), new anchor.BN(0).toArrayLike(Buffer, "le", 8)],
+      [Buffer.from('proposal'), new anchor.BN(0).toArrayLike(Buffer, "le", 8)],
       program.programId
     );
     await program.methods
-      .finalizeProposalHandler()
+      .finalizeProposalHandler(new anchor.BN(0))
       .accounts({
         configAccount: configAccount,
         proposal: proposalAccount,
@@ -878,10 +877,10 @@ it("buyback and burn", async () => {
       .accounts({
         configAccount: configAccount,
         charity: charityAccount,
-        registrar: user.publicKey,
+        registrar: admin.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
       })
-      .signers([user])
+      .signers([admin])
       .rpc();
   })
   it("castVote", async () => {
@@ -897,6 +896,7 @@ it("buyback and burn", async () => {
 
       const tx = await program.methods
         .castVoteHandler(
+          new anchor.BN(0)
         )
         .accounts({
           voteRecord: voteRecord,
@@ -910,7 +910,6 @@ it("buyback and burn", async () => {
         .signers([user])
         .rpc();
     } catch (e) {
-      console.log(e)
       if (e instanceof anchor.AnchorError) {
         assert(e.message.includes("VotingNotEligible"))
       } else {
@@ -931,13 +930,13 @@ it("buyback and burn", async () => {
     );
 
     const tx = await program.methods
-      .finalizeCharityVoteHandler()
+      .finalizeCharityVoteHandler(new anchor.BN(0))
       .accounts({
         configAccount: configAccount,
         charity: charityAccount,
-        admin: user.publicKey,
+        admin: admin.publicKey,
       })
-      .signers([user])
+      .signers([admin])
       .rpc();
   })
 

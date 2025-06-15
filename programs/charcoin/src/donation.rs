@@ -27,6 +27,7 @@ pub struct VoteRecord {
     pub charity: Pubkey,  // Charity this vote is for
     pub voter: Pubkey,    // Voter's public key
     pub vote_weight: u64, // Voting weight (based on staked tokens)
+    pub voted:bool
 }
 
 #[error_code]
@@ -43,6 +44,8 @@ pub enum CharityError {
     VotingNotEligible,
     #[msg("User has not staked any tokens.")]
     NoStakedTokens,
+    #[msg("User Already Voted")]
+    AlreadyVoted,
 }
 
 /// Registers a new charity for donation voting.
@@ -70,14 +73,20 @@ pub fn register_charity(
 }
 
 /// Casts or updates a vote for a charity
-pub fn cast_vote(ctx: Context<CastVote>) -> Result<()> {
+pub fn cast_vote(ctx: Context<CastVote>,_charity_id:u64) -> Result<()> {
     let config_account = &mut ctx.accounts.config_account;
     let staking_pool = &mut ctx.accounts.staking_pool;
+    let vote_record = &mut ctx.accounts.vote_record;
+    let charity = &mut ctx.accounts.charity;
 
     let clock = Clock::get()?.unix_timestamp;
     let user = &ctx.accounts.user;
     let amount_staked = user.total_amount;
-       require!(
+    if vote_record.voted {
+        return Err(CharityError::AlreadyVoted.into());
+    }
+
+    require!(
         amount_staked >= config_account.config.min_governance_stake, // Minimum stake to vote
         CharityError::VotingNotEligible
     );
@@ -85,7 +94,6 @@ pub fn cast_vote(ctx: Context<CastVote>) -> Result<()> {
         clock - user.first_staked_at >= config_account.config.min_stake_duration_voting, // 15 days
         CharityError::VotingNotEligible
     );
-    let charity = &mut ctx.accounts.charity;
     // Ensure voting is active.
     require!(
         clock >= charity.start_time && clock <= charity.end_time,
@@ -102,62 +110,26 @@ pub fn cast_vote(ctx: Context<CastVote>) -> Result<()> {
     let vote_weight = (vote_power as u128 * amount_staked as u128 / 1000) as u64;
 
 
-    let vote_record = &mut ctx.accounts.vote_record;
-    if vote_record.vote_weight == 0 {
-        // New vote.
-        vote_record.charity = charity.key();
-        vote_record.voter = ctx.accounts.voter.key();
-        vote_record.vote_weight = vote_weight;
-        charity.total_votes = charity
-            .total_votes
-            .checked_add(vote_weight)
-            .ok_or(CharityError::MathError)?;
-        msg!(
-            "Voter {} cast {} votes for charity {}",
-            vote_record.voter,
-            vote_weight,
-            charity.name
-        );
-    } else {
-        // Update existing vote.
-        if vote_weight > vote_record.vote_weight {
-            let diff = vote_weight
-                .checked_sub(vote_record.vote_weight)
-                .ok_or(CharityError::MathError)?;
-            charity.total_votes = charity
-                .total_votes
-                .checked_add(diff)
-                .ok_or(CharityError::MathError)?;
-            vote_record.vote_weight = vote_weight;
-            msg!(
-                "Voter {} increased vote by {} for charity {}",
-                vote_record.voter,
-                diff,
-                charity.name
-            );
-        } else {
-            let diff = vote_record
-                .vote_weight
-                .checked_sub(vote_weight)
-                .ok_or(CharityError::MathError)?;
-            charity.total_votes = charity
-                .total_votes
-                .checked_sub(diff)
-                .ok_or(CharityError::MathError)?;
-            vote_record.vote_weight = vote_weight;
-            msg!(
-                "Voter {} decreased vote by {} for charity {}",
-                vote_record.voter,
-                diff,
-                charity.name
-            );
-        }
-    }
+    vote_record.charity = charity.key();
+    vote_record.voter = ctx.accounts.voter.key();
+    vote_record.vote_weight = vote_weight;
+    vote_record.voted = true;
+    charity.total_votes = charity
+        .total_votes
+        .checked_add(vote_weight)
+        .ok_or(CharityError::MathError)?;
+    msg!(
+        "Voter {} cast {} votes for charity {}",
+        vote_record.voter,
+        vote_weight,
+        charity.name
+    );
+ 
     Ok(())
 }
 
 /// Finalizes the charity voting after the voting period has ended.
-pub fn finalize_charity_vote(ctx: Context<FinalizeCharityVote>) -> Result<()> {
+pub fn finalize_charity_vote(ctx: Context<FinalizeCharityVote>,_charity_id:u64) -> Result<()> {
     let clock = Clock::get()?.unix_timestamp;
     let charity = &mut ctx.accounts.charity;
     require!(clock > charity.end_time, CharityError::VotingNotEnded);
@@ -178,27 +150,45 @@ pub struct RegisterCharity<'info> {
             bump
         )]    
         pub config_account: Account<'info, ConfigAccount>,
-    #[account(init, payer = registrar,seeds=[b"charity".as_ref(),config_account.config.next_charity_id.to_le_bytes().as_ref()],bump, space = 8 + 8 + 4 + 64 + 4 + 256 + 32 + 8 + 8 + 1)]
+    #[account(init, payer = registrar,seeds=[b"charity".as_ref(),config_account.config.next_charity_id.to_le_bytes().as_ref()],bump, 
+    space = 8 +                     // discriminator
+        8 +                     // id
+        4 + 64 +          // name (4 bytes for length prefix + actual string)
+        4 + 256 +   // description (4 bytes for length prefix + actual string)
+        32 +                    // wallet
+        8 +                     // total_votes
+        8 +                     // start_time
+        8 +                     // end_time
+        1 +                     // status
+        32                      // admin
+)]
     pub charity: Account<'info, Charity>,
-    #[account(mut)]
+    #[account(mut,
+    constraint = registrar.key() == config_account.config.admin,
+    )]
     pub registrar: Signer<'info>,
     pub system_program: Program<'info, System>,
 }
 
-/// VoteRecord is created with PDA seeds: ["vote", charity.key(), voter.key()]
 #[derive(Accounts)]
-#[instruction()]
+#[instruction(charity_id:u64)]
 pub struct CastVote<'info> {
   #[account(
-            mut,
-            seeds=[b"config".as_ref()],
-            bump
-        )]    pub config_account: Account<'info, ConfigAccount>,
-    #[account(mut)]
+        mut,
+        seeds=[b"config".as_ref()],
+        bump
+    )]    
+    pub config_account: Account<'info, ConfigAccount>,
+    
+    #[account(mut,
+    seeds=[b"charity".as_ref(),charity_id.to_le_bytes().as_ref()],bump,
+    )]
     pub charity: Account<'info, Charity>,
-    #[account(init_if_needed,
+    
+    #[account(
+        init_if_needed,
         payer = voter,
-        space = 8 + 32 + 32 + 8,
+        space = 8 + std::mem::size_of::<VoteRecord>(),
         seeds = [b"vote", charity.key().as_ref(), voter.key().as_ref()],
         bump
     )]
@@ -217,16 +207,22 @@ pub struct CastVote<'info> {
 }
 
 #[derive(Accounts)]
+#[instruction(charity_id:u64)]
+
 pub struct FinalizeCharityVote<'info> {
   #[account(
-            mut,
-            seeds=[b"config".as_ref()],
-            bump
-        )]    pub config_account: Account<'info, ConfigAccount>,
-    #[account(mut)]
-    pub charity: Account<'info, Charity>,
+        mut,
+        seeds=[b"config".as_ref()],
+        bump
+    )]    
+    pub config_account: Account<'info, ConfigAccount>,
     #[account(mut,
-    constraint = admin.key() == charity.admin 
-)]
+    seeds=[b"charity".as_ref(),charity_id.to_le_bytes().as_ref()],bump,
+    )]    
+    pub charity: Account<'info, Charity>,
+    #[account(
+        mut,
+        constraint = admin.key() == charity.admin 
+    )]
     pub admin: Signer<'info>,
 }

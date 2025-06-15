@@ -16,7 +16,10 @@ pub struct ExecuteBuyback<'info> {
     pub mint: Account<'info, Mint>,
     #[account(mut)]
     pub burn_wallet_ata: Account<'info,TokenAccount>,
-    #[account(mut)]
+    #[account(
+        mut,
+        constraint = config_account.config.death_wallet == burn_authority.key() // Ensure the signer is the admin
+    )]
     pub burn_authority: Signer<'info>,
 
     pub token_program: Program<'info, Token>,
@@ -62,10 +65,7 @@ pub fn execute_buyback(
         new_total_burned: tracker.total_burned,
         timestamp: current_time,
     });
-    msg!(
-        "Executed buyback:  burning {} tokens.",
-        tokens_to_buy
-    );
+   
     Ok(())
 }
 

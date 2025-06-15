@@ -1,5 +1,8 @@
 
-
+# Issue 1
+The `vote_on_proposal` lacks critical checks to ensure that:
+1. a staker has not already submitted an unstake request, and
+2. a single staker is not voting on multiple proposals simultaneously.
 
 
 
@@ -23,5 +26,10 @@ changes:
 8. release_funds updated logic for fund transfer
 9. staking lockup dynamic
 10. user largest_lockup logic implementation 
-11. claim_reward added the logic for get reward_percentage based on lockup
+    11. claim_reward added the logic for get reward_percentage based on lockup
 12. added testcases for the above changes.
+
+
+
+
+100

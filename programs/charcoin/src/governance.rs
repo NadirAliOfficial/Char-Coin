@@ -28,6 +28,7 @@ pub struct Vote {
     pub voter: Pubkey,      // Voter's public key
     pub amount_staked: u64, // Voting power (staked tokens)
     pub vote_choice: bool,  // true for Yes, false for No
+    pub voted: bool, // Whether the user has voted
 }
 
 /// Submits a new proposal.
@@ -69,12 +70,28 @@ pub fn vote_on_proposal(
 
 ) -> Result<()> {
     let current_time = Clock::get()?.unix_timestamp;
-    let proposal = &mut ctx.accounts.proposal;
+    let proposal: &mut Account<'_, Proposal> = &mut ctx.accounts.proposal;
     let staking_pool = &mut ctx.accounts.staking_pool;
     let config_account = &mut ctx.accounts.config_account;
     let user = &ctx.accounts.user;
-    
+    let user_vote_account = &mut ctx.accounts.user_vote_account;
+    if user_vote_account.voted {
+        return Err(GovernanceError::AlreadyVoted.into());
+    }
+
+
+    require!(
+        proposal.id == proposal_id,
+        GovernanceError::InvalidProposalId
+    );
     let amount_staked = user.total_amount;
+    
+    user_vote_account.voted =true;
+    user_vote_account.proposal_id = proposal_id;
+    user_vote_account.voter = ctx.accounts.voter.key();
+    user_vote_account.amount_staked = amount_staked;
+    user_vote_account.vote_choice = vote_choice;
+    
      require!(
         amount_staked >= config_account.config.min_governance_stake, // Minimum stake to vote
         GovernanceError::VotingNotEligible
@@ -108,13 +125,7 @@ pub fn vote_on_proposal(
             .checked_add(voting_amount)
             .ok_or(GovernanceError::MathError)?;
     }
-    msg!(
-        "Vote cast on proposal {}: {} votes ({} for, {} against)",
-        proposal_id,
-        amount_staked,
-        proposal.yes_votes,
-        proposal.no_votes
-    );
+ 
     emit!(VoteCastEvent {
         proposal_id,
         vote_choice,
@@ -127,19 +138,21 @@ pub fn vote_on_proposal(
 }
 
 /// Finalizes a proposal after voting has ended.
-pub fn finalize_proposal(ctx: Context<FinalizeProposal>) -> Result<()> {
+pub fn finalize_proposal(ctx: Context<FinalizeProposal>,    _proposal_id: u64) -> Result<()> {
     let current_time = Clock::get()?.unix_timestamp;
     let proposal = &mut ctx.accounts.proposal;
     require!(
         current_time >= proposal.end_time,
         GovernanceError::VotingStillActive
     );
+    require!(
+        proposal.status == ProposalStatus::Active,
+        GovernanceError::ProposalAlreadyFinalized
+    );
     if proposal.yes_votes > proposal.no_votes {
         proposal.status = ProposalStatus::Approved;
-        msg!("Proposal {} approved!", proposal.id);
     } else {
         proposal.status = ProposalStatus::Rejected;
-        msg!("Proposal {} rejected!", proposal.id);
     }
     emit!(ProposalFinalizedEvent {
         proposal_id: proposal.id,
@@ -191,6 +204,14 @@ pub fn initialize_treasury(
         owners.len() > 1 && owners.len() <= 10,
         GovernanceError::InvalidOwners
     );
+    let mut unique_owners = std::collections::HashSet::new();
+
+    for owner in &owners {
+        require!(
+            unique_owners.insert(*owner),
+            GovernanceError::DuplicateOwner
+        );
+    }
     require!(
         threshold > 0 && threshold <= owners.len() as u8,
         GovernanceError::InvalidThreshold
@@ -198,11 +219,7 @@ pub fn initialize_treasury(
     treasury.owners = owners;
     treasury.threshold = threshold;
     treasury.withdrawal_count = 0;
-    msg!(
-        "DAO Treasury initialized with {} owners and threshold {}.",
-        treasury.owners.len(),
-        treasury.threshold
-    );
+   
     emit!(TreasuryInitializedEvent {
         owners_count: treasury.owners.len() as u64,
         threshold: treasury.threshold,
@@ -223,11 +240,7 @@ pub fn create_withdrawal(
     withdrawal.recipient = recipient;
     withdrawal.approvals = Vec::new();
     withdrawal.executed = false;
-    msg!(
-        "Withdrawal proposal created: {} lamports to {:?}",
-        amount,
-        recipient
-    );
+  
     emit!(WithdrawalProposalCreatedEvent {
         amount,
         recipient,
@@ -249,7 +262,6 @@ pub fn approve_withdrawal(ctx: Context<ApproveWithdrawal>) -> Result<()> {
     require!(!withdrawal.executed, GovernanceError::AlreadyExecuted);
     if !withdrawal.approvals.contains(&signer) {
         withdrawal.approvals.push(signer);
-        msg!("Approval added by {:?}", signer);
         emit!(WithdrawalApprovedEvent {
             signer,
             current_approvals: withdrawal.approvals.len() as u64,
@@ -269,17 +281,18 @@ pub fn execute_withdrawal(ctx: Context<ExecuteWithdrawal>) -> Result<()> {
         withdrawal.approvals.len() as u8 >= treasury.threshold,
         GovernanceError::InsufficientApprovals
     );
+    let signer = ctx.accounts.signer.key();
+    require!(
+        treasury.owners.contains(&signer),
+        GovernanceError::Unauthorized
+    );
     let lamports = withdrawal.amount;
     let treasury_account = ctx.accounts.treasury.to_account_info();
     let recipient_account = ctx.accounts.recipient.to_account_info();
     **treasury_account.try_borrow_mut_lamports()? -= lamports;
     **recipient_account.try_borrow_mut_lamports()? += lamports;
     withdrawal.executed = true;
-    msg!(
-        "Executed withdrawal of {} lamports to {:?}",
-        lamports,
-        withdrawal.recipient
-    );
+   
     emit!(WithdrawalExecutedEvent {
         amount: lamports,
         recipient: withdrawal.recipient,
@@ -298,7 +311,7 @@ pub struct InitializeTreasury<'info> {
             bump
         )]    pub config_account: Account<'info, ConfigAccount>,
     #[account(init, seeds=[b"treasury".as_ref()],
-            bump, payer = signer, space = 8 + (32 * 10) + 1 + 8)]
+            bump, payer = signer, space =8 + 4 + (32 * 10) + 1 + 8)]
     pub treasury: Account<'info, Treasury>,
     #[account(mut,
         constraint = signer.key() == config_account.config.admin,
@@ -316,11 +329,11 @@ pub struct CreateWithdrawal<'info> {
         )]    pub config_account: Account<'info, ConfigAccount>,
     #[account(mut)]
     pub treasury: Account<'info, Treasury>,
-    #[account(init, payer = signer, seeds=[b"withdrawal".as_ref()],bump,space = 8 + 8 + 32 + (32 * 10) + 1)]
+    #[account(init, payer = signer, seeds=[b"withdrawal".as_ref()],bump,space = 8 + 8 + 32 + 4 + (32 * 10) + 1)]
     pub withdrawal: Account<'info, WithdrawalProposal>,
-    #[account(mut,
-            constraint = signer.key() == config_account.config.admin,
-
+    #[account(
+        mut,
+        constraint = signer.key() == config_account.config.admin,
     )]
     pub signer: Signer<'info>,
     pub system_program: Program<'info, System>,
@@ -352,24 +365,37 @@ pub struct ExecuteWithdrawal<'info> {
     pub treasury: Account<'info, Treasury>,
     #[account(mut)]
     pub withdrawal: Account<'info, WithdrawalProposal>,
-        /// CHECK: Recipient account; no additional checks.
-
-    #[account(mut)]
+    /// CHECK: Recipient account; no additional checks.
+    #[account(
+        mut,
+        constraint = recipient.key() == withdrawal.recipient 
+    )]
     pub recipient:  AccountInfo<'info>,
-        #[account(mut)]
+    #[account(mut)]
     pub signer: Signer<'info>,
 }
 
 #[derive(Accounts)]
 pub struct SubmitProposal<'info> {
   #[account(
-            mut,
-            seeds=[b"config".as_ref()],
-            bump
-        )]    pub config_account: Account<'info, ConfigAccount>,
-    #[account(init, payer = creator, 
-        seeds=[b"proposal", creator.key().as_ref(),config_account.config.next_proposal_id.to_le_bytes().as_ref()],
-         bump, space = 8 + 32 + 8 + 256 + 8 + 8 + 1 + 8)]
+        mut,
+        seeds=[b"config".as_ref()],
+        bump
+    )]    
+    pub config_account: Account<'info, ConfigAccount>,
+    #[account(
+        init, payer = creator, 
+        seeds=[b"proposal", config_account.config.next_proposal_id.to_le_bytes().as_ref()],
+        bump, space =    8 +     // discriminator
+        8 +     // id
+        32 +    // creator
+        4 + 100 +         // title
+        4 + 500 +   // description
+        8 +     // yes_votes
+        8 +     // no_votes
+        1 +     // status
+        8      // end_time
+    )]
     pub proposal: Account<'info, Proposal>,
     #[account(mut)]
     pub creator: Signer<'info>,
@@ -377,14 +403,21 @@ pub struct SubmitProposal<'info> {
 }
 
 #[derive(Accounts)]
+#[instruction(proposal_id:u64)]
+
 pub struct VoteOnProposal<'info> {
   #[account(
-            mut,
-            seeds=[b"config".as_ref()],
-            bump
-        )]    pub config_account: Account<'info, ConfigAccount>,
+        mut,
+        seeds=[b"config".as_ref()],
+        bump
+    )]    
+    pub config_account: Account<'info, ConfigAccount>,
         
-    #[account(mut)]
+    #[account(
+        mut,
+        seeds=[b"proposal", proposal_id.to_le_bytes().as_ref()],
+        bump
+    )]
     pub proposal: Account<'info, Proposal>,
     #[account(mut)]
     pub voter: Signer<'info>,
@@ -393,6 +426,14 @@ pub struct VoteOnProposal<'info> {
         bump = user.bump
     )]
     pub user: Account<'info, UserStakeInfo>,
+    #[account(
+        init_if_needed,
+        space = 8 + std::mem::size_of::<Vote>(),
+        payer = voter,
+        seeds = [b"user_vote", proposal_id.to_le_bytes().as_ref(), voter.key().as_ref()],
+        bump
+    )]
+    pub user_vote_account: Account<'info, Vote>,
    #[account(
         mut,
         seeds = [b"staking_pool".as_ref(), staking_pool.token_mint.as_ref()],
@@ -404,13 +445,16 @@ pub struct VoteOnProposal<'info> {
 }
 
 #[derive(Accounts)]
+#[instruction(proposal_id:u64)]
 pub struct FinalizeProposal<'info> {
   #[account(
             mut,
             seeds=[b"config".as_ref()],
             bump
         )]    pub config_account: Account<'info, ConfigAccount>,
-    #[account(mut)]
+    #[account(  mut,
+        seeds=[b"proposal", proposal_id.to_le_bytes().as_ref()],
+        bump)]
     pub proposal: Account<'info, Proposal>,
     #[account(mut)]
     pub admin: Signer<'info>,
@@ -438,6 +482,14 @@ pub enum GovernanceError {
     VotingNotEligible,
     #[msg("User has not staked any tokens.")]
     NoStakedTokens,
+    #[msg("User Already Voted")]
+    AlreadyVoted,
+    #[msg("Duplicate Owner")]
+    DuplicateOwner,
+    #[msg("Proposal Already Finalized")]
+    ProposalAlreadyFinalized,
+    #[msg("Invalid Proposal Id")]
+    InvalidProposalId,
 }
 
 #[event]

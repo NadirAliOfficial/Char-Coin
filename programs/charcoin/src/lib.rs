@@ -129,12 +129,13 @@ pub mod charcoin {
         governance::vote_on_proposal(ctx, proposal_id, vote_choice)
     }
 
-    pub fn finalize_proposal_handler(ctx: Context<FinalizeProposal>) -> Result<()> {
+    pub fn finalize_proposal_handler(ctx: Context<FinalizeProposal>,    proposal_id: u64,
+) -> Result<()> {
           require!(
             ctx.accounts.config_account.config.halted == false,
             ErrorCode::ProgramIsHalted
         );
-        governance::finalize_proposal(ctx)
+        governance::finalize_proposal(ctx,proposal_id)
     }
 
 
@@ -194,21 +195,21 @@ pub mod charcoin {
     }
 
     /// Casts or updates a vote for a charity.
-    pub fn cast_vote_handler(ctx: Context<CastVote>) -> Result<()> {
+    pub fn cast_vote_handler(ctx: Context<CastVote>,charity_id:u64) -> Result<()> {
           require!(
             ctx.accounts.config_account.config.halted == false,
             ErrorCode::ProgramIsHalted
         );
-        donation::cast_vote(ctx)
+        donation::cast_vote(ctx,charity_id)
     }
 
     /// Finalizes charity voting after the voting period ends.
-    pub fn finalize_charity_vote_handler(ctx: Context<FinalizeCharityVote>) -> Result<()> {
+    pub fn finalize_charity_vote_handler(ctx: Context<FinalizeCharityVote>,charity_id:u64) -> Result<()> {
           require!(
             ctx.accounts.config_account.config.halted == false,
             ErrorCode::ProgramIsHalted
         );
-        donation::finalize_charity_vote(ctx)
+        donation::finalize_charity_vote(ctx,charity_id)
     }
 
     //  Rewards
@@ -265,6 +266,7 @@ pub mod charcoin {
 pub struct Config {
     // The fields below are used in your code, so we add them to avoid errors.
     pub admin: Pubkey,
+    pub chai_token_mint: Pubkey, // Chai Token Mint
     // Reward System
     // Monthly Rewards Classification (50%)
     pub monthly_top_tier_wallet: Pubkey,
