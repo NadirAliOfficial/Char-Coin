@@ -1,63 +1,126 @@
-# CHAR Coin Smart Contract (Solana)
 
-## Revolutionizing Crypto with Transparent Donations, Staking & Governance
+# CharCoin Smart Contract (Solana)
 
----
-
-## Overview
-
-CHAR Coin is a Solana-based SPL token designed to facilitate automated donations, dynamic staking rewards, and decentralized governance. Built with Rust and the Anchor framework, the smart contract ensures secure, transparent, and automated fund distribution. Users can stake tokens, vote on proposals, and participate in a deflationary ecosystem that supports charitable causes and community decisions.
-
-This repository contains the complete Solana smart contract for CHAR Coin, featuring:
-
-- **Token Minting & Transfers**
-- **Automated Burn Mechanism**
-- **Multi-tiered Staking with Dynamic Rewards**
-- **Lottery-Based Rewards System**
-- **Decentralized Voting for Charitable Donations**
-- **DAO Governance for Ecosystem Decisions**
-- **Multisig Security & Emergency Halt Mechanism**
-- **Private Sale Vesting with Fund Deposit & Claim**
+### Transparent Donations • DAO Governance • Dynamic Staking • Deflationary Tokenomics
 
 ---
 
-## Technology Stack
+## 📌 Overview
 
-- **Blockchain:** Solana (SPL Token)
-- **Smart Contract Language:** Rust (using Anchor Framework)
-- **CLI Tools:** Solana CLI, Anchor CLI
-- **Frontend Integration:** JavaScript/React (for PWA integration)
-- **Security:** Multisig Wallets, DAO Voting, Smart Contract Audits
+CHAR Coin is a Solana-based smart contract system built using the Anchor framework and Rust. It implements a decentralized ecosystem for:
 
----
+- Stake-based DAO governance  
+- Transparent, automated donation fund allocation  
+- Buyback and burn deflation mechanics  
+- Dynamic staking with time-based rewards  
+- Multisig-secured marketing and treasury fund control  
+- Emergency halt for contract protection
 
-## Project Modules
-
-- **burn.rs:** Implements buyback & burn functionality with deflationary token burning.
-- **staking.rs:** Handles staking mechanics including dynamic rewards, interest rate calculation, and early withdrawal penalties.
-- **governance.rs:** Supports DAO governance with proposal submission, stake-weighted voting, and finalization.
-- **marketing.rs:** Manages multisig-controlled marketing wallet fund distribution.
-- **donation.rs:** Contains the charity registration and weighted voting system for donations.
-- **private_sale.rs:** Manages private sale vesting, fund deposit into a vault, and token claim after a 90-day lockup.
-- **security.rs:** Provides multisig and additional security features.
-- **rewards.rs:** (Optional) Additional rewards system and lottery-based mechanisms.
+All modules have passed internal audits and comprehensive unit testing. For more details, please refer to the Official White Paper: https://charcoin.org/charcoin-white-paper/
 
 ---
 
-## Installation & Setup
+## ✅ Development Environment
 
-### Prerequisites
+- **Rust:** `1.83.0`
+- **Anchor CLI:** `0.30.1`
+- **Solana CLI:** `2.1.17`
+- **Test Path:** `tests/charcoin.ts`
 
-Before running the CHAR Coin smart contract, ensure you have:
-- **Rust & Cargo** (for smart contract development)
-- **Solana CLI** (to interact with the Solana blockchain)
-- **Anchor Framework** (for efficient contract development)
-- **Node.js & Yarn** (for frontend integration and testing)
+---
 
-### Install Dependencies
+## 🧩 Program Modules
 
-```sh
-# Install Rust & Cargo
+Each logic component is modularized for clarity and maintainability:
+
+| Module            | Description                                                                            |
+|-------------------|----------------------------------------------------------------------------------------|
+| `lib.rs`          | Entry point and global instruction router                                              |
+| `burn.rs`         | Buyback and deflationary burn functions                                                |
+| `staking.rs`      | Locking, staking, and dynamic reward distribution                                      |
+| `governance.rs`   | Proposal lifecycle, vote casting, and finalization                                     |
+| `donation.rs`     | Charity registration, voting, and distribution logic                                   |
+| `marketing.rs`    | Multisig marketing wallet management and release rules                                 |
+| `security.rs`     | Emergency halt mechanism and multisig verification                                     |
+| `rewards.rs`      | Additional reward systems, including lottery-style and volume-based bonuses (optional) |
+
+---
+
+## 🧪 Unit Testing
+
+Run:
+
+```bash
+anchor test
+````
+
+**Test Summary:**
+All 20 core instructions and flows are passing:
+
+* Stake / Unstake / Claim / Penalty logic
+* Emergency halt triggers
+* Buyback + burn execution
+* DAO: Proposal → Vote → Finalize
+* Marketing + donation fund release (multisig)
+* DAO treasury: withdraw / approve / execute
+
+**Execution Time:** ≈ 42 seconds
+
+---
+
+## 🔐 Security Features
+
+* **Multisig Authorization:** All fund releases (marketing, donations, DAO treasury) are protected by multisig thresholds.
+* **Emergency Halt:** Critical instructions can be paused upon detection of suspicious behavior.
+* **DAO Governance:** Voting power is locked to staking participation; only staked tokens (min 15 days) are eligible to vote.
+* **Audit Readiness:** Fully modular code, deterministic execution paths, and descriptive events for audit traceability.
+
+---
+
+## 📈 Tokenomics Structure
+
+CHAR Coin uses a fixed **1% transaction fee**, distributed as:
+
+| Category                    | Allocation | Description                                                           |
+| --------------------------- | ---------- | --------------------------------------------------------------------- |
+| Buyback & Marketing         | 10%        | Includes burn wallet and two multisig marketing funds                 |
+| Charity Donations & Rewards | 75%        | Community-driven voting for recipients; includes lottery reward pools |
+| Staking Incentives          | 15%        | Distributed across time-locked staking pools                          |
+
+Reward rates are **dynamically adjusted** based on:
+
+* Total staked token volume
+* Daily/weekly transaction activity
+* Lock-in duration (30/90/180 days)
+
+---
+
+## 🗳️ DAO Governance
+
+Governance follows a proposal–vote–finalize structure. Key mechanics:
+
+* **Proposals**: Any eligible staker can submit
+* **Voting Period**: Defined by system configuration
+* **Weight**: Proportional to staked tokens
+* **Finalization**: On-chain vote tally and execution
+
+---
+
+## ❤️ Charity Voting System
+
+* **Cause Registration**: Any verified organization can be listed
+* **User Voting**: Monthly vote window; 1 vote per wallet
+* **Distribution**: Weighted fund release after vote closure
+* **Annual Reserve**: 20% of funds are pooled for yearly distribution
+
+---
+
+## 🛠 Setup Instructions
+
+### Dependencies
+
+```bash
+# Install Rust
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
 # Install Solana CLI
@@ -67,114 +130,53 @@ sh -c "$(curl -sSfL https://release.solana.com/stable/install)"
 cargo install --git https://github.com/coral-xyz/anchor anchor-cli --locked
 ```
 
----
+### Build & Deploy
 
-## Deployment
-
-### Build the Smart Contract
-
-```sh
+```bash
 anchor build
-```
-
-### Deploy to Solana Devnet
-
-```sh
 solana config set --url devnet
 anchor deploy
 ```
 
-### Verify on Solscan
+Verify deployment:
 
-Retrieve your Program ID and verify the deployment on [Solscan](https://solscan.io):
-
-```sh
-solana program show --program-id <YOUR_PROGRAM_ID>
+```bash
+solana program show --program-id <PROGRAM_ID>
 ```
 
 ---
 
-## Features & Functionalities
+## 📁 Repository Structure
 
-### Tokenomics & Fund Distribution
-
-- **Transaction Fee:** 1% of every transaction is collected.
-- **Allocation:**
-  - **10%** for Buyback, Deflation, & Marketing.
-  - **75%** for Charity Donations & Rewards.
-  - **15%** for Staking Incentives.
-
-### Automated Burn Mechanism
-
-- A portion of transaction fees is automatically used to buy back and burn tokens.
-- This deflationary process ensures long-term scarcity and value appreciation.
-
-### Staking & Dynamic Rewards
-
-- Users can lock CHAR tokens for rewards with lockup durations of **30, 90, or 180 days**.
-- **Dynamic Interest Rates:** Calculated based on total transaction volume and total staked tokens.
-- Early withdrawal incurs a 10% penalty.
-- Reward distribution uses a fixed-point multiplier for precision.
-
-### DAO Governance & Voting
-
-- Community-driven decision-making with proposal creation and stake-weighted voting.
-- Voting is open for a defined period, and proposals are finalized on-chain with detailed event logging.
-- Only tokens in staking are valid for voting; a minimum of 15 days of staking is required for eligibility.
-
-### Multisig Security
-
-- Multisig wallets ensure that fund transfers (marketing and donation) are approved by multiple authorized parties.
-- Emergency halt mechanisms are in place to prevent exploits.
-
-### Private Sale & Vesting
-
-- Investors participate in a private sale where tokens are locked in a vesting contract for 90 days.
-- After the vesting period, investors can claim their tokens, ensuring controlled token distribution.
-
----
-
-## Testing
-
-Run unit tests to validate all functionalities:
-
-```sh
-anchor test
+```
+charcoin-programs/
+├── programs/
+│   └── charcoin/
+│       └── src/
+│           ├── lib.rs
+│           ├── burn.rs
+│           ├── staking.rs
+│           ├── governance.rs
+│           ├── marketing.rs
+│           ├── donation.rs
+│           ├── security.rs
+│           └── rewards.rs
+├── tests/
+│   └── charcoin.ts
+├── Anchor.toml
+├── Cargo.toml
+└── README.md
 ```
 
-Tests cover:
-- Token minting and transfers.
-- Burn mechanism and buyback functionality.
-- Staking, reward distribution, and dynamic interest rate calculations.
-- DAO governance (proposal submission, voting, and finalization).
-- Multisig-controlled fund distribution.
-- Private sale vesting and claim processes.
-
 ---
 
-## API & Documentation
+## 📦 Audit Readiness
 
-Express API server (located in the `api` folder) is provided for interacting with the on-chain instructions, including:
+The repository is structured for third-party audit access:
 
-- Creating proposals.
-- Casting votes.
-- Distributing rewards.
-- Managing staking and vesting.
+* Full instruction coverage with unit tests
+* Clear event logs for transaction tracing
+* Multisig-secured flows for critical operations
+* Configurable constants for fee and reward logic
 
-Refer to the IDL in the `target/idl` directory for a complete list of instructions and account structures.
-
----
-
-## Roadmap
-
-**Phase 1: Smart Contract Development** (Feb 2025 - Mar 2025)  
-- Implement core functionalities (tokenomics, staking, governance, etc.).
-
-**Phase 2: Internal Testing & Optimization** (Mar 2025)  
-- Conduct extensive testing, gas optimization, and security audits.
-
-**Phase 3: Solana Mainnet Deployment** (Mar 2025)  
-- Deploy the contract on Solana Mainnet after thorough testing.
-
-**Phase 4: Web App Integration & Launch** (Q2 2025)  
-- Integrate with a user-friendly frontend for ecosystem participation.
+For questions or integration support, please open an issue on this repository.
