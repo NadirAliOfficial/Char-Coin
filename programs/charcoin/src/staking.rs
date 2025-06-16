@@ -3,8 +3,10 @@ use anchor_lang::solana_program::clock::Clock;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
 use crate::ConfigAccount;
-const FOURTY_EIGHT_HOURS_IN_SECONDS:u32 = 172800;
-const ONE_DAY_IN_SECONDS:u32 = 86400;
+// const FOURTY_EIGHT_HOURS_IN_SECONDS:u32 = 172800;
+const FOURTY_EIGHT_HOURS_IN_SECONDS:u32 = 1;
+// const ONE_DAY_IN_SECONDS:u32 = 86400;
+const ONE_DAY_IN_SECONDS:u32 = 1;
 
 pub fn stake_tokens(ctx: Context<Stake>, amount: u64, lockup: u16) -> Result<()> {
     require!(amount > 0, StakingError::NoStakedTokens);

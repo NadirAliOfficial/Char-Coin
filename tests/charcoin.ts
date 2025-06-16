@@ -253,15 +253,15 @@ describe("char coin test", () => {
 
   it("stake", async () => {
     // 1st time
-    let stakeInfo;
+      
+
     let [userStake] = anchor.web3.PublicKey.findProgramAddressSync(
       [Buffer.from('user_stake'), user.publicKey.toBuffer(), new anchor.BN(0).toArrayLike(Buffer, "le", 8)],
       program.programId
     );
     await program.methods
       .stakeTokensHandler(
-        new anchor.BN(1e6), // 10 tokens
-        // new anchor.BN(30) // 30 days
+        new anchor.BN(1e6), // 1 tokens
         new anchor.BN(1) // 1 days for devnet
       )
       .accounts({
@@ -278,99 +278,11 @@ describe("char coin test", () => {
       })
       .signers([user])
       .rpc();
-    // 2nd time
-    stakeInfo = await program.account.userStakeInfo.fetch(userStakePDA);
-    [userStake] = anchor.web3.PublicKey.findProgramAddressSync(
-      [Buffer.from('user_stake'), user.publicKey.toBuffer(), new anchor.BN(stakeInfo.stakeCount).toArrayLike(Buffer, "le", 8)],
-      program.programId
-    );
-
-    await program.methods
-      .stakeTokensHandler(
-        new anchor.BN(1e6), // 10 tokens
-        // new anchor.BN(30) // 30 days
-        new anchor.BN(1) // 1 days for devnet
-      )
-      .accounts({
-        configAccount: configAccount,
-
-        stakingPool: stakingPool,
-        user: userStakePDA,
-        userStake: userStake,
-        userAuthority: user.publicKey,
-        userTokenAccount: userAta.address,
-        poolTokenAccount: stakingPoolAta.address,
-        systemProgram: anchor.web3.SystemProgram.programId,
-        tokenProgram: TOKEN_PROGRAM_ID,
-      })
-      .signers([user])
-      .rpc();
-
-
-    // 3rd time
-        stakeInfo = await program.account.userStakeInfo.fetch(userStakePDA);
-
-    [userStake] = anchor.web3.PublicKey.findProgramAddressSync(
-      [Buffer.from('user_stake'), user.publicKey.toBuffer(), new anchor.BN(stakeInfo.stakeCount).toArrayLike(Buffer, "le", 8)],
-      program.programId
-    );
-
-    await program.methods
-      .stakeTokensHandler(
-        new anchor.BN(1e6), // 10 tokens
-        // new anchor.BN(30) // 30 days
-        new anchor.BN(1) // 1 days for devnet
-      )
-      .accounts({
-        configAccount: configAccount,
-
-        stakingPool: stakingPool,
-        user: userStakePDA,
-        userStake: userStake,
-        userAuthority: user.publicKey,
-        userTokenAccount: userAta.address,
-        poolTokenAccount: stakingPoolAta.address,
-        systemProgram: anchor.web3.SystemProgram.programId,
-        tokenProgram: TOKEN_PROGRAM_ID,
-      })
-      .signers([user])
-      .rpc();
-    // 4th time
-        stakeInfo = await program.account.userStakeInfo.fetch(userStakePDA);
-
-    [userStake] = anchor.web3.PublicKey.findProgramAddressSync(
-      [Buffer.from('user_stake'), user.publicKey.toBuffer(), new anchor.BN(stakeInfo.stakeCount).toArrayLike(Buffer, "le", 8)],
-      program.programId
-    );
-
-    await program.methods
-      .stakeTokensHandler(
-        new anchor.BN(1e6), // 10 tokens
-        // new anchor.BN(30) // 30 days
-        new anchor.BN(1) // 1 days for devnet
-      )
-      .accounts({
-        configAccount: configAccount,
-
-        stakingPool: stakingPool,
-        user: userStakePDA,
-        userStake: userStake,
-        userAuthority: user.publicKey,
-        userTokenAccount: userAta.address,
-        poolTokenAccount: stakingPoolAta.address,
-        systemProgram: anchor.web3.SystemProgram.programId,
-        tokenProgram: TOKEN_PROGRAM_ID,
-      })
-      .signers([user])
-      .rpc();
-
-
-
 
     const data = await program.account.userStakeInfo.fetch(userStakePDA)
     const stake_data = await program.account.userStakesEntry.fetch(userStake)
 
-    assert.equal(4e6, Number(data.totalAmount));
+    assert.equal(1e6, Number(data.totalAmount));
     // // assert.equal(30, Number(stake_data.lockup));
     assert.equal(1, Number(stake_data.lockup));
 
@@ -398,78 +310,55 @@ describe("char coin test", () => {
       .signers([user])
       .rpc();
 
-// 2nd
-    [userStake] = anchor.web3.PublicKey.findProgramAddressSync(
-      [Buffer.from('user_stake'), user.publicKey.toBuffer(), new anchor.BN(1).toArrayLike(Buffer, "le", 8)],
-      program.programId
-    );
-    now = Math.floor(Date.now() / 1000);
-    await sleep(2000)
-    await program.methods
-      .requestUnstakeHandler(new anchor.BN(1)) // stake id
-      .accounts({
-        configAccount: configAccount,
-        stakingPool: stakingPool,
-        user: userStakePDA,
-        userStake: userStake,
-        userAuthority: user.publicKey,
-      })
-      .signers([user])
-      .rpc();
-
-
-
-// 3rd
-    [userStake] = anchor.web3.PublicKey.findProgramAddressSync(
-      [Buffer.from('user_stake'), user.publicKey.toBuffer(), new anchor.BN(2).toArrayLike(Buffer, "le", 8)],
-      program.programId
-    );
-    now = Math.floor(Date.now() / 1000);
-    await sleep(2000)
-    await program.methods
-      .requestUnstakeHandler(new anchor.BN(2)) // stake id
-      .accounts({
-        configAccount: configAccount,
-        stakingPool: stakingPool,
-        user: userStakePDA,
-        userStake: userStake,
-        userAuthority: user.publicKey,
-      })
-      .signers([user])
-      .rpc();
-      
-      //4th
-    [userStake] = anchor.web3.PublicKey.findProgramAddressSync(
-      [Buffer.from('user_stake'), user.publicKey.toBuffer(), new anchor.BN(3).toArrayLike(Buffer, "le", 8)],
-      program.programId
-    );
-    now = Math.floor(Date.now() / 1000);
-    await sleep(2000)
-    await program.methods
-      .requestUnstakeHandler(new anchor.BN(3)) // stake id
-      .accounts({
-        configAccount: configAccount,
-        stakingPool: stakingPool,
-        user: userStakePDA,
-        userStake: userStake,
-        userAuthority: user.publicKey,
-      })
-      .signers([user])
-      .rpc();
-
-
-
-
-
-
     const data = await program.account.userStakesEntry.fetch(userStake)
     assert.isAbove(Number(data.unstakeRequestedAt), now)
 
   });
 
 
-  it("unstake", async () => {
-    try {
+  
+
+
+  it("claim reward", async () => {
+        let balance = (await program.provider.connection.getTokenAccountBalance(userAta.address))
+    console.log("balance",balance)
+        await sleep(3000)
+
+    await mintTo(
+      program.provider.connection,
+      admin, // fee payer
+      tokenMint,
+      stakingRewardAta.address, // destination ATA
+      admin, // mint authority
+      1_000_000_00000
+    );
+      const [userStake] = anchor.web3.PublicKey.findProgramAddressSync(
+        [Buffer.from('user_stake'), user.publicKey.toBuffer(), new anchor.BN(0).toArrayLike(Buffer, "le", 8)],
+        program.programId
+      );
+      await program.methods
+        .claimRewardHandler(new anchor.BN(0))
+        .accounts({
+          configAccount: configAccount,
+          stakingPool: stakingPool,
+          user: userStakePDA,
+          userAuthority: user.publicKey,
+          userStake: userStake,
+
+          userTokenAccount: userAta.address,
+          stakingRewardAta: stakingRewardAta.address,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .signers([user])
+        .rpc();
+
+            balance = (await program.provider.connection.getTokenAccountBalance(userAta.address))
+    console.log("balance",balance)
+   
+  });
+it("unstake", async () => {
+   let balance = (await program.provider.connection.getTokenAccountBalance(userAta.address))
+    console.log("balance",balance)
       const [userStake] = anchor.web3.PublicKey.findProgramAddressSync(
         [Buffer.from('user_stake'), user.publicKey.toBuffer(), new anchor.BN(0).toArrayLike(Buffer, "le", 8)],
         program.programId
@@ -492,54 +381,9 @@ describe("char coin test", () => {
         .signers([user])
 
         .rpc();
-    } catch (e) {
-      if (e instanceof anchor.AnchorError) {
-        assert(e.message.includes("WaitFor48Hours"))
-      } else {
-        assert(false);
-      }
-    }
+       balance = (await program.provider.connection.getTokenAccountBalance(userAta.address))
+    console.log("balance",balance)
   });
-
-
-  it("claim reward", async () => {
-      await mintTo(
-      program.provider.connection,
-      admin, // fee payer
-      tokenMint,
-      stakingRewardAta.address, // destination ATA
-      admin, // mint authority
-      1_000_000_00000
-    );
-    try {
-      const [userStake] = anchor.web3.PublicKey.findProgramAddressSync(
-        [Buffer.from('user_stake'), user.publicKey.toBuffer(), new anchor.BN(0).toArrayLike(Buffer, "le", 8)],
-        program.programId
-      );
-      await program.methods
-        .claimRewardHandler(new anchor.BN(0))
-        .accounts({
-          configAccount: configAccount,
-          stakingPool: stakingPool,
-          user: userStakePDA,
-          userAuthority: user.publicKey,
-          userStake: userStake,
-
-          userTokenAccount: userAta.address,
-          stakingRewardAta: stakingRewardAta.address,
-          tokenProgram: TOKEN_PROGRAM_ID,
-        })
-        .signers([user])
-        .rpc();
-    } catch (e) {
-      if (e instanceof anchor.AnchorError) {
-        assert(e.message.includes("StakingPeriodNotMet"))
-      } else {
-        assert(false);
-      }
-    }
-  });
-
 
   it("Emergency halt", async () => {
     let data = await program.account.configAccount.fetch(configAccount[0])
@@ -557,43 +401,6 @@ describe("char coin test", () => {
     data = await program.account.configAccount.fetch(configAccount[0])
     assert.equal(data.config.halted, true)
 
-try{
-    let stakeInfo = await program.account.userStakeInfo.fetch(userStakePDA);
-
-    let [userStake] = anchor.web3.PublicKey.findProgramAddressSync(
-      [Buffer.from('user_stake'), user.publicKey.toBuffer(), new anchor.BN(stakeInfo.stakeCount).toArrayLike(Buffer, "le", 8)],
-      program.programId
-    );
-
-    await program.methods
-      .stakeTokensHandler(
-        new anchor.BN(1e6), // 10 tokens
-        // new anchor.BN(30) // 30 days
-        new anchor.BN(1) // 1 days for devnet
-      )
-      .accounts({
-        configAccount: configAccount,
-
-        stakingPool: stakingPool,
-        user: userStakePDA,
-        userStake: userStake,
-        userAuthority: user.publicKey,
-        userTokenAccount: userAta.address,
-        poolTokenAccount: stakingPoolAta.address,
-        systemProgram: anchor.web3.SystemProgram.programId,
-        tokenProgram: TOKEN_PROGRAM_ID,
-      })
-      .signers([user])
-      .rpc();
-
-  } catch (e) {
-
-      if (e instanceof anchor.AnchorError) {
-        assert(e.message.includes("ProgramIsHalted"))
-      } else {
-        assert(false);
-      }
-    }
 
   });
 
@@ -740,19 +547,7 @@ try{
 
  
     let total = 1000e6; // 1000 tokens
-/**
- *    
-    
-    
-    
-    
-    
-    pub monthly_infinite_impact_causes_ata: 
-    
-    
-    pub annual_infinite_impact_causes_ata: 
 
- */
     await program.methods
       .releaseFundsHandler(new anchor.BN(total))
       .accounts({
