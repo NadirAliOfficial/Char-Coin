@@ -12,9 +12,13 @@ pub struct ExecuteBuyback<'info> {
         bump
     )]
     pub config_account: Account<'info, ConfigAccount>,
-    #[account(mut)]
+    #[account(mut,
+    constraint = mint.key() == config_account.config.char_token_mint)]
     pub mint: Account<'info, Mint>,
-    #[account(mut)]
+    #[account(mut,
+            constraint = burn_wallet_ata.owner.key() ==  config_account.config.death_wallet,
+            constraint = burn_wallet_ata.mint.key() ==  config_account.config.char_token_mint
+    )]
     pub burn_wallet_ata: Account<'info, TokenAccount>,
     #[account(
         mut,
