@@ -248,7 +248,7 @@ pub fn claim_reward(ctx: Context<ClaimReward>, _stake_id: u64) -> Result<()> {
         b"staking_reward",
         staking_pool.token_mint.as_ref(),
         &[ctx.bumps.staking_reward],
-    ];
+    ];  
     let signer = &[seeds];
 
     // Transfer reward tokens to user
@@ -326,7 +326,10 @@ pub struct StakeInitialize<'info> {
     )]
     pub staking_reward: Account<'info, StakingRewards>,
 
-    #[account(mut)]
+   #[account(
+        mut,
+        constraint = authority.key() == config_account.config.admin,
+    )]
     pub authority: Signer<'info>,
     #[account(
         mut,
@@ -418,7 +421,6 @@ pub struct Stake<'info> {
 
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
-    pub rent: Sysvar<'info, Rent>,
 }
 
 #[derive(Accounts)]
