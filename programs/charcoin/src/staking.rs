@@ -56,11 +56,9 @@ pub fn stake_tokens(ctx: Context<Stake>, amount: u64, lockup: u16) -> Result<()>
     user.total_amount += amount;
     user.stake_count += 1;
 
-    // if lockup > user.largest_lockup {
-    //     user.largest_lockup = lockup;
-    // }
 
-        let vote_power = staking_pool
+
+    let vote_power = staking_pool
     .stake_lockup_reward_array
     .iter()
     .find(|x| x.lockup_days == lockup)
