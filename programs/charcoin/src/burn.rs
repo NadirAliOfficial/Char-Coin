@@ -1,8 +1,8 @@
 use crate::ConfigAccount;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::clock::Clock;
-use anchor_spl::token::{self, Burn, Token};
-use anchor_spl::token::{Mint, TokenAccount};
+use anchor_spl::token_interface::{Mint, TokenAccount};
+use anchor_spl::token_2022::{Burn, burn, Token2022 as Token};
 
 #[derive(Accounts)]
 pub struct ExecuteBuyback<'info> {
@@ -14,12 +14,12 @@ pub struct ExecuteBuyback<'info> {
     pub config_account: Account<'info, ConfigAccount>,
     #[account(mut,
     constraint = mint.key() == config_account.config.char_token_mint)]
-    pub mint: Account<'info, Mint>,
+    pub mint: InterfaceAccount<'info, Mint>,
     #[account(mut,
             constraint = burn_wallet_ata.owner.key() ==  config_account.config.death_wallet,
             constraint = burn_wallet_ata.mint.key() ==  config_account.config.char_token_mint
     )]
-    pub burn_wallet_ata: Account<'info, TokenAccount>,
+    pub burn_wallet_ata: InterfaceAccount<'info, TokenAccount>,
     #[account(
         mut,
         constraint = config_account.config.death_wallet == burn_authority.key() 
@@ -47,7 +47,7 @@ pub fn execute_buyback(ctx: Context<ExecuteBuyback>) -> Result<()> {
             authority: ctx.accounts.burn_authority.to_account_info(),
         },
     );
-    token::burn(burn_ctx, tokens_to_buy)?;
+    burn(burn_ctx, tokens_to_buy)?;
 
     // Update the burn tracker.
     let tracker = &mut ctx.accounts.config_account.config;

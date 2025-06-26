@@ -1,9 +1,10 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { Charcoin } from "../target/types/charcoin";
-import { createMint, getOrCreateAssociatedTokenAccount, mintTo, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { createInitializeTransferFeeConfigInstruction, createMint, getOrCreateAssociatedTokenAccount, mintTo, TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 import { assert, use } from "chai";
-
+import { ASSOCIATED_PROGRAM_ID } from "@coral-xyz/anchor/dist/cjs/utils/token";
+const TOKEN_PROGRAM_ID = TOKEN_2022_PROGRAM_ID
 async function confirmTransaction(tx: string) {
   const latestBlockHash = await anchor.getProvider().connection.getLatestBlockhash();
   await anchor.getProvider().connection.confirmTransaction({
@@ -71,7 +72,10 @@ describe("char coin test", () => {
       admin,
       admin.publicKey,
       null,
-      6 // decimals
+      6, // decimals
+      anchor.web3.Keypair.generate(),
+      {},
+      TOKEN_2022_PROGRAM_ID,
     );
 
     [stakingPool] = anchor.web3.PublicKey.findProgramAddressSync(
@@ -87,7 +91,12 @@ describe("char coin test", () => {
       program.provider.connection,
       user,
       tokenMint,
-      user.publicKey
+      user.publicKey,
+      false,
+      null,
+      null,
+      TOKEN_2022_PROGRAM_ID,
+      ASSOCIATED_PROGRAM_ID,
     );
     await mintTo(
       program.provider.connection,
@@ -95,58 +104,86 @@ describe("char coin test", () => {
       tokenMint,
       userAta.address, // destination ATA
       admin, // mint authority
-      1_000_000_00000
+      1_000_000_00000,
+      [],
+      {},
+      TOKEN_PROGRAM_ID,
     );
-
-
+    
+    
     stakingPoolAta = await getOrCreateAssociatedTokenAccount(
       program.provider.connection,
       admin,
       tokenMint,
       stakingPool,
-      true
+      true,
+      null,
+      null,
+      TOKEN_2022_PROGRAM_ID,
+      ASSOCIATED_PROGRAM_ID,
     );
     stakingRewardAta = await getOrCreateAssociatedTokenAccount(
       program.provider.connection,
       admin,
       tokenMint,
       stakingRewardAccount,
-      true
+      true,
+      null,
+      null,
+      TOKEN_2022_PROGRAM_ID,
+      ASSOCIATED_PROGRAM_ID,
     );
     [userStakePDA] = anchor.web3.PublicKey.findProgramAddressSync(
       [Buffer.from('user'), user.publicKey.toBuffer()],
       program.programId
     );
-
+    
     marketingWallet1Ata = await getOrCreateAssociatedTokenAccount(
       program.provider.connection,
       admin,
       tokenMint,
       marketingWallet1.publicKey,
-      false
+      false,
+      null,
+      null,
+      TOKEN_2022_PROGRAM_ID,
+      ASSOCIATED_PROGRAM_ID,
     );
-
+    
     marketingWallet2Ata = await getOrCreateAssociatedTokenAccount(
       program.provider.connection,
       admin,
       tokenMint,
       marketingWallet2.publicKey,
-      false
+      false,
+      null,
+      null,
+      TOKEN_2022_PROGRAM_ID,
+      ASSOCIATED_PROGRAM_ID,
     );
     deathWalletAta = await getOrCreateAssociatedTokenAccount(
       program.provider.connection,
       admin,
       tokenMint,
       deathWallet.publicKey,
-      false
+      false,
+          null,
+    null,
+    TOKEN_2022_PROGRAM_ID,
+    ASSOCIATED_PROGRAM_ID,
     );
-
+    
+    console.log("here-------------------------------")
     treasuryAuthorityAta = await getOrCreateAssociatedTokenAccount(
       program.provider.connection,
       admin,
       tokenMint,
       treasuryAuthority.publicKey,
-      false
+      false,
+           null,
+    null,
+    TOKEN_2022_PROGRAM_ID,
+    ASSOCIATED_PROGRAM_ID,
     );
 
     await mintTo(
@@ -155,7 +192,10 @@ describe("char coin test", () => {
       tokenMint,
       treasuryAuthorityAta.address, // destination ATA
       admin, // mint authority
-      1_000_000_00000
+      1_000_000_00000,
+          [],
+   {},
+   TOKEN_2022_PROGRAM_ID,
     );
   })
   it("initialized", async () => {
@@ -266,7 +306,7 @@ describe("char coin test", () => {
       )
       .accounts({
         configAccount: configAccount,
-
+        mint:tokenMint,
         stakingPool: stakingPool,
         user: userStakePDA,
         userStake: userStake,
@@ -330,7 +370,10 @@ describe("char coin test", () => {
       tokenMint,
       stakingRewardAta.address, // destination ATA
       admin, // mint authority
-      1_000_000_00000
+      1_000_000_00000,
+          [],
+   {},
+   TOKEN_PROGRAM_ID,
     );
       const [userStake] = anchor.web3.PublicKey.findProgramAddressSync(
         [Buffer.from('user_stake'), user.publicKey.toBuffer(), new anchor.BN(0).toArrayLike(Buffer, "le", 8)],
@@ -344,6 +387,7 @@ describe("char coin test", () => {
           user: userStakePDA,
           userAuthority: user.publicKey,
           userStake: userStake,
+        mint:tokenMint,
 
           userTokenAccount: userAta.address,
           stakingRewardAta: stakingRewardAta.address,
@@ -369,6 +413,7 @@ it("unstake", async () => {
           configAccount: configAccount,
           stakingPool: stakingPool,
           userStake: userStake,
+        mint:tokenMint,
 
           user: userStakePDA,
           userAuthority: user.publicKey,
@@ -416,7 +461,9 @@ it("unstake", async () => {
           destWallet1Ata: marketingWallet1Ata.address,
           destWallet2Ata: marketingWallet2Ata.address,
           tokenProgram: TOKEN_PROGRAM_ID,
-          deathWalletAta: deathWalletAta.address
+          deathWalletAta: deathWalletAta.address,
+                  mint:tokenMint,
+
         })
         .signers([treasuryAuthority])
         .rpc();
@@ -465,7 +512,9 @@ it("unstake", async () => {
         destWallet1Ata: marketingWallet1Ata.address,
         destWallet2Ata: marketingWallet2Ata.address,
         tokenProgram: TOKEN_PROGRAM_ID,
-        deathWalletAta: deathWalletAta.address
+        deathWalletAta: deathWalletAta.address,
+                mint:tokenMint,
+
 
       })
       .signers([treasuryAuthority])
@@ -486,63 +535,99 @@ it("unstake", async () => {
       admin,
       tokenMint,
       charFunds.publicKey,
-      false
+      false,
+          null,
+    null,
+    TOKEN_2022_PROGRAM_ID,
+    ASSOCIATED_PROGRAM_ID,
     );
     let monthlyTopTierWalletAta = await getOrCreateAssociatedTokenAccount(
       program.provider.connection,
       admin,
       tokenMint,
       monthlyTopTierWallet.publicKey,
-      false
+      false,
+          null,
+    null,
+    TOKEN_2022_PROGRAM_ID,
+    ASSOCIATED_PROGRAM_ID,
     );
     let annualTopTierWalletAta = await getOrCreateAssociatedTokenAccount(
       program.provider.connection,
       admin,
       tokenMint,
       annualTopTierWallet.publicKey,
-      false
+      false,
+          null,
+    null,
+    TOKEN_2022_PROGRAM_ID,
+    ASSOCIATED_PROGRAM_ID,
     );
     let monthlyCharityLotteryWalletAta = await getOrCreateAssociatedTokenAccount(
       program.provider.connection,
       admin,
       tokenMint,
       monthlyCharityLotteryWallet.publicKey,
-      false
+      false,
+          null,
+    null,
+    TOKEN_2022_PROGRAM_ID,
+    ASSOCIATED_PROGRAM_ID,
     );
     let annualCharityLotteryWalletAta = await getOrCreateAssociatedTokenAccount(
       program.provider.connection,
       admin,
       tokenMint,
       annualCharityLotteryWallet.publicKey,
-      false
+      false,
+          null,
+    null,
+    TOKEN_2022_PROGRAM_ID,
+    ASSOCIATED_PROGRAM_ID,
     );
     let monthlyOneTimeCausesWalletAta = await getOrCreateAssociatedTokenAccount(
       program.provider.connection,
       admin,
       tokenMint,
       monthlyOneTimeCausesWallet.publicKey,
-      false
+      false,
+          null,
+    null,
+    TOKEN_2022_PROGRAM_ID,
+    ASSOCIATED_PROGRAM_ID,
     );
     let annualOneTimeCausesWalletAta = await getOrCreateAssociatedTokenAccount(
       program.provider.connection,
       admin,
       tokenMint,
       annualOneTimeCausesWallet.publicKey,
-      false
+      false,
+          null,
+    null,
+    TOKEN_2022_PROGRAM_ID,
+    ASSOCIATED_PROGRAM_ID,
     );
     let monthlyInfiniteImpactCausesWalletAta = await getOrCreateAssociatedTokenAccount(
       program.provider.connection,
       admin,
       tokenMint,
       monthlyInfiniteImpactCausesWallet.publicKey,
-      false
+      false,
+          null,
+    null,
+    TOKEN_2022_PROGRAM_ID,
+    ASSOCIATED_PROGRAM_ID,
     );
     let annualInfiniteImpactCausesWalletAta = await getOrCreateAssociatedTokenAccount(
       program.provider.connection,
       admin,
       tokenMint,
       annualInfiniteImpactCausesWallet.publicKey,
-      false
+      false,
+          null,
+    null,
+    TOKEN_2022_PROGRAM_ID,
+    ASSOCIATED_PROGRAM_ID,
     );
 
  
@@ -552,10 +637,8 @@ it("unstake", async () => {
       .releaseFundsHandler(new anchor.BN(total))
       .accounts({
         configAccount: configAccount,
-        stakingPool: stakingPool,
         treasuryAuthority: treasuryAuthority.publicKey,
         treasuryAta: treasuryAuthorityAta.address,
-        charFundsAta: charFundsAta.address,
         monthlyTopTierAta:monthlyTopTierWalletAta.address,
         annualTopTierAta:annualTopTierWalletAta.address,
         monthlyCharityLotteryAta:monthlyCharityLotteryWalletAta.address,
@@ -564,8 +647,26 @@ it("unstake", async () => {
         annualOneTimeCausesAta:annualOneTimeCausesWalletAta.address,
         monthlyInfiniteImpactCausesAta:monthlyInfiniteImpactCausesWalletAta.address,
         annualInfiniteImpactCausesAta:annualInfiniteImpactCausesWalletAta.address,
+        tokenProgram: TOKEN_PROGRAM_ID,
+                mint:tokenMint,
+
+      })
+      .signers([treasuryAuthority])
+      .rpc();
+
+
+        await program.methods
+      .releaseStakingFundsHandler(new anchor.BN(total))
+      .accounts({
+        configAccount: configAccount,
+        treasuryAuthority: treasuryAuthority.publicKey,
+        treasuryAta: treasuryAuthorityAta.address,
         stakingRewardAta: stakingRewardAta.address,
         tokenProgram: TOKEN_PROGRAM_ID,
+        charFundsAta: charFundsAta.address,
+
+                mint:tokenMint,
+
       })
       .signers([treasuryAuthority])
       .rpc();
