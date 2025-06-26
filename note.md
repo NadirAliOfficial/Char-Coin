@@ -5,11 +5,6 @@ The `vote_on_proposal` lacks critical checks to ensure that:
 
 
 
-# Issue 2
-The following code block is intended to verify whether the voter initially staked 15 days ago. However, it only checks the first
-stake, allowing a user to stake a very small amount initially and then stake other amounts after 15 days. Consequently, the
-newly staked CHAR can be used to vote immediately, bypassing the intended lock-up period.
-
 
 
 
@@ -40,4 +35,4 @@ changes:
 
 
 
-100
+contract deployment cost = 4.185949919999999 sol

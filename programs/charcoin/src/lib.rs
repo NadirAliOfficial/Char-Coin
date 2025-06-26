@@ -11,7 +11,7 @@ pub mod rewards;
 pub mod security;
 pub mod staking;
 
-use anchor_spl::token::Mint;
+use anchor_spl::token_interface::Mint;
 // Re-export public items
 pub use burn::*;
 pub use donation::*;
@@ -21,7 +21,7 @@ pub use rewards::*;
 pub use security::*;
 pub use staking::*;
 
-declare_id!("keyk1FHhXGs82vJ2qecM8Rc96PXVvArVtNfoC8xEyKN");
+declare_id!("aUvFTHYrF4N6vpyC5DnkWNXqahcGcDknEScKeoEuANt");
 
 #[program]
 pub mod charcoin {
@@ -190,6 +190,16 @@ pub mod charcoin {
         );
         rewards::release_funds(ctx, total_amount)
     }
+    pub fn release_staking_funds_handler(
+        ctx: Context<ReleaseStakingFunds>,
+        total_amount: u64,
+    ) -> Result<()> {
+        require!(
+            ctx.accounts.config_account.config.halted == false,
+            ErrorCode::ProgramIsHalted
+        );
+        rewards::release_staking_char_funds(ctx, total_amount)
+    }
 
     // Marketing
     pub fn distribute_marketing_funds_handler(
@@ -306,7 +316,7 @@ pub struct Initialize<'info> {
          bump, space = 8 + std::mem::size_of::<ConfigAccount>())]
     pub config: Account<'info, ConfigAccount>,
     #[account(mut)]
-    pub mint: Account<'info, Mint>,
+    pub mint: InterfaceAccount<'info, Mint>,
     #[account(mut)]
     pub user: Signer<'info>,
     pub system_program: Program<'info, System>,
