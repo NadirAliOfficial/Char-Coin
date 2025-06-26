@@ -25,7 +25,7 @@ describe("char coin test", () => {
   const admin = anchor.web3.Keypair.generate()
   const user = anchor.web3.Keypair.generate();
   const program = anchor.workspace.charcoin as Program<Charcoin>;
-  const configAccount = anchor.web3.PublicKey.findProgramAddressSync(
+  const [configAccount] = anchor.web3.PublicKey.findProgramAddressSync(
     [Buffer.from('config')],
     program.programId
   );
@@ -232,6 +232,8 @@ describe("char coin test", () => {
     await program.methods
       .stakingInitialize()
       .accounts({
+        configAccount: configAccount,
+
         stakingPool: stakingPool,
         stakingRewardAccount: stakingRewardAccount,
         authority: admin.publicKey,
@@ -274,7 +276,7 @@ describe("char coin test", () => {
         new anchor.BN(100) // early_unstake_penalty = 10%
       )
       .accounts({
-                configAccount: configAccount,
+                config: configAccount,
                 admin:admin.publicKey
 
       })
@@ -431,7 +433,7 @@ it("unstake", async () => {
   });
 
   it("Emergency halt", async () => {
-    let data = await program.account.configAccount.fetch(configAccount[0])
+    let data = await program.account.configAccount.fetch(configAccount)
     assert.equal(data.config.halted, false)
     await program.methods
       .changeEmergencyStateHandler(true)
@@ -443,7 +445,7 @@ it("unstake", async () => {
       })
       .signers([admin])
       .rpc();
-    data = await program.account.configAccount.fetch(configAccount[0])
+    data = await program.account.configAccount.fetch(configAccount)
     assert.equal(data.config.halted, true)
 
 
@@ -687,7 +689,7 @@ it("buyback and burn", async () => {
   })
 
   it("submitProposal", async () => {
-    let data = await program.account.configAccount.fetch(configAccount[0])
+    let data = await program.account.configAccount.fetch(configAccount)
 
     const [proposalAccount] = anchor.web3.PublicKey.findProgramAddressSync(
       [Buffer.from('proposal'), data.config.nextProposalId.toArrayLike(Buffer, "le", 8)],
@@ -759,7 +761,7 @@ it("buyback and burn", async () => {
 
 
   it("register Charity", async () => {
-    let data = await program.account.configAccount.fetch(configAccount[0])
+    let data = await program.account.configAccount.fetch(configAccount)
 
     let name = "Water for All";
     let description = "Water for underserved communities";

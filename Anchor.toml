@@ -6,10 +6,10 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-charcoin = "keyk1FHhXGs82vJ2qecM8Rc96PXVvArVtNfoC8xEyKN"
+charcoin = "aUvFTHYrF4N6vpyC5DnkWNXqahcGcDknEScKeoEuANt"
 
 [programs.devnet]
-charcoin = "P62DXPtDL9S68D34mKJ1LNDLRuXSf4Cy63hi5aNVYjR"
+charcoin = "aUvFTHYrF4N6vpyC5DnkWNXqahcGcDknEScKeoEuANt"
 
 [registry]
 url = "https://api.apr.dev"

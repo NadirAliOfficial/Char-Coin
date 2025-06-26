@@ -35,4 +35,4 @@ changes:
 
 
 
-100
+contract deployment cost = 4.185949919999999 sol
