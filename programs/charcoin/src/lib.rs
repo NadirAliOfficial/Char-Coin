@@ -5,21 +5,20 @@ use anchor_lang::prelude::*;
 // Modules
 pub mod burn;
 pub mod donation;
-pub mod governance;
 pub mod marketing;
 pub mod rewards;
 pub mod security;
 pub mod staking;
+pub mod errors;
 
-use anchor_spl::token_interface::Mint;
 // Re-export public items
 pub use burn::*;
 pub use donation::*;
-pub use governance::*;
 pub use marketing::*;
 pub use rewards::*;
 pub use security::*;
 pub use staking::*;
+pub use errors::*;
 
 declare_id!("aUvFTHYrF4N6vpyC5DnkWNXqahcGcDknEScKeoEuANt");
 
@@ -32,7 +31,6 @@ pub mod charcoin {
         let config_account = &mut ctx.accounts.config;
         config_account.config = config;
 
-        msg!("CHAR Coin initialized with donation wallets configured");
         Ok(())
     }
 
@@ -51,7 +49,7 @@ pub mod charcoin {
     pub fn stake_tokens_handler(ctx: Context<Stake>, amount: u64, lockup: u16) -> Result<()> {
         require!(
             ctx.accounts.config_account.config.halted == false,
-            ErrorCode::ProgramIsHalted
+            CustomError::ProgramIsHalted
         );
         staking::stake_tokens(ctx, amount, lockup)
     }
@@ -60,7 +58,7 @@ pub mod charcoin {
     pub fn unstake_tokens_handler(ctx: Context<Unstake>, index: u64) -> Result<()> {
         require!(
             ctx.accounts.config_account.config.halted == false,
-            ErrorCode::ProgramIsHalted
+            CustomError::ProgramIsHalted
         );
 
         staking::unstake_tokens(ctx, index)
@@ -70,7 +68,7 @@ pub mod charcoin {
     pub fn request_unstake_handler(ctx: Context<UnstakeRequest>, index: u64) -> Result<()> {
         require!(
             ctx.accounts.config_account.config.halted == false,
-            ErrorCode::ProgramIsHalted
+            CustomError::ProgramIsHalted
         );
 
         staking::request_unstake_tokens(ctx, index)
@@ -79,7 +77,7 @@ pub mod charcoin {
     pub fn claim_reward_handler(ctx: Context<ClaimReward>, index: u64) -> Result<()> {
         require!(
             ctx.accounts.config_account.config.halted == false,
-            ErrorCode::ProgramIsHalted
+            CustomError::ProgramIsHalted
         );
 
         staking::claim_reward(ctx, index)
@@ -89,47 +87,12 @@ pub mod charcoin {
     pub fn buyback_burn_handler(ctx: Context<ExecuteBuyback>) -> Result<()> {
         require!(
             ctx.accounts.config_account.config.halted == false,
-            ErrorCode::ProgramIsHalted
+            CustomError::ProgramIsHalted
         );
         burn::execute_buyback(ctx)
     }
-    // Governance
-    // Governance functions
-    pub fn submit_proposal_handler(
-        ctx: Context<SubmitProposal>,
-        title: String,
-        description: String,
-        duration: u64,
-    ) -> Result<()> {
-        require!(
-            ctx.accounts.config_account.config.halted == false,
-            ErrorCode::ProgramIsHalted
-        );
-        governance::submit_proposal(ctx, title, description, duration)
-    }
-
-    pub fn vote_on_proposal_handler(
-        ctx: Context<VoteOnProposal>,
-        proposal_id: u64,
-        vote_choice: bool,
-    ) -> Result<()> {
-        require!(
-            ctx.accounts.config_account.config.halted == false,
-            ErrorCode::ProgramIsHalted
-        );
-        governance::vote_on_proposal(ctx, proposal_id, vote_choice)
-    }
-
-    pub fn finalize_proposal_handler(
-        ctx: Context<FinalizeProposal>,
-        proposal_id: u64,
-    ) -> Result<()> {
-        require!(
-            ctx.accounts.config_account.config.halted == false,
-            ErrorCode::ProgramIsHalted
-        );
-        governance::finalize_proposal(ctx, proposal_id)
-    }
+   
+  
 
     // Emergency halt
 
@@ -144,26 +107,25 @@ pub mod charcoin {
     /// Registers a new charity for the donation ecosystem.
     pub fn register_charity_handler(
         ctx: Context<RegisterCharity>,
-        name: String,
-        description: String,
+        title: String,
         wallet: Pubkey,
         start_time: u64,
         end_time: u64,
     ) -> Result<()> {
         require!(
             ctx.accounts.config_account.config.halted == false,
-            ErrorCode::ProgramIsHalted
+            CustomError::ProgramIsHalted
         );
-        donation::register_charity(ctx, name, description, wallet, start_time, end_time)
+        donation::register_charity(ctx, title, wallet, start_time, end_time)
     }
 
     /// Casts or updates a vote for a charity.
-    pub fn cast_vote_handler(ctx: Context<CastVote>, charity_id: u64) -> Result<()> {
+    pub fn cast_vote_handler(ctx: Context<CastVote>, charity_id: u64,char_points:u64) -> Result<()> {
         require!(
             ctx.accounts.config_account.config.halted == false,
-            ErrorCode::ProgramIsHalted
+            CustomError::ProgramIsHalted
         );
-        donation::cast_vote(ctx, charity_id)
+        donation::cast_vote(ctx, charity_id,char_points)
     }
 
     /// Finalizes charity voting after the voting period ends.
@@ -173,22 +135,32 @@ pub mod charcoin {
     ) -> Result<()> {
         require!(
             ctx.accounts.config_account.config.halted == false,
-            ErrorCode::ProgramIsHalted
+            CustomError::ProgramIsHalted
         );
         donation::finalize_charity_vote(ctx, charity_id)
     }
 
     //  Rewards
     /// Releases funds from the treasury to staking rewards and charity fund.
-    pub fn release_funds_handler(
-        ctx: Context<ReleaseMonthlyFunds>,
+    pub fn release_rewards_handler(
+        ctx: Context<ReleaseRewards>,
         total_amount: u64,
     ) -> Result<()> {
         require!(
             ctx.accounts.config_account.config.halted == false,
-            ErrorCode::ProgramIsHalted
+            CustomError::ProgramIsHalted
         );
-        rewards::release_funds(ctx, total_amount)
+        rewards::release_rewards(ctx, total_amount)
+    }
+    pub fn release_donations_handler(
+        ctx: Context<ReleaseDonations>,
+        total_amount: u64,
+    ) -> Result<()> {
+        require!(
+            ctx.accounts.config_account.config.halted == false,
+            CustomError::ProgramIsHalted
+        );
+        rewards::release_donations(ctx, total_amount)
     }
     pub fn release_staking_funds_handler(
         ctx: Context<ReleaseStakingFunds>,
@@ -196,7 +168,7 @@ pub mod charcoin {
     ) -> Result<()> {
         require!(
             ctx.accounts.config_account.config.halted == false,
-            ErrorCode::ProgramIsHalted
+            CustomError::ProgramIsHalted
         );
         rewards::release_staking_char_funds(ctx, total_amount)
     }
@@ -208,7 +180,7 @@ pub mod charcoin {
     ) -> Result<()> {
         require!(
             ctx.accounts.config_account.config.halted == false,
-            ErrorCode::ProgramIsHalted
+            CustomError::ProgramIsHalted
         );
         marketing::distribute_marketing_funds(ctx, total_amount)
     }
@@ -221,7 +193,7 @@ pub mod charcoin {
     ) -> Result<()> {
           require!(
             ctx.accounts.config.config.halted == false,
-            ErrorCode::ProgramIsHalted
+            CustomError::ProgramIsHalted
         );
         let config = &mut ctx.accounts.config;
         config.config.min_governance_stake = min_governance_stake;
@@ -246,7 +218,7 @@ pub mod charcoin {
     ) -> Result<()> {
           require!(
             ctx.accounts.config_account.config.halted == false,
-            ErrorCode::ProgramIsHalted
+            CustomError::ProgramIsHalted
         );
         staking::set_reward_percentage(
             ctx,
@@ -316,8 +288,6 @@ pub struct Initialize<'info> {
          bump, space = 8 + std::mem::size_of::<ConfigAccount>())]
     pub config: Account<'info, ConfigAccount>,
     #[account(mut)]
-    pub mint: InterfaceAccount<'info, Mint>,
-    #[account(mut)]
     pub user: Signer<'info>,
     pub system_program: Program<'info, System>,
 }
@@ -338,15 +308,3 @@ pub struct Settings<'info> {
     pub admin: Signer<'info>,
 }
 
-/// Custom error definitions.
-#[error_code]
-pub enum ErrorCode {
-    #[msg("An arithmetic error occurred.")]
-    MathError,
-    #[msg("Unauthorized operation.")]
-    Unauthorized,
-    #[msg("Invalid wallet configuration")]
-    InvalidConfiguration,
-    #[msg("program is halted")]
-    ProgramIsHalted,
-}
