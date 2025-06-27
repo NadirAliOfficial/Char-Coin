@@ -20,7 +20,7 @@ pub use security::*;
 pub use staking::*;
 pub use errors::*;
 
-declare_id!("aUvFTHYrF4N6vpyC5DnkWNXqahcGcDknEScKeoEuANt");
+declare_id!("ai3YXqGx4AprHym5YRcjMBnXhnB7NuW7QnQhkQNEFi1");
 
 #[program]
 pub mod charcoin {

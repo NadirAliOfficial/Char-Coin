@@ -53,7 +53,7 @@ async function main() {
     try {
       
     
- const configAccount = anchor.web3.PublicKey.findProgramAddressSync(
+ const [configAccount] = anchor.web3.PublicKey.findProgramAddressSync(
     [Buffer.from('config')],
     program.programId
   );

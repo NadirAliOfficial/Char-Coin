@@ -6,16 +6,16 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-charcoin = "aUvFTHYrF4N6vpyC5DnkWNXqahcGcDknEScKeoEuANt"
+charcoin = "ai3YXqGx4AprHym5YRcjMBnXhnB7NuW7QnQhkQNEFi1"
 
 [programs.devnet]
-charcoin = "aUvFTHYrF4N6vpyC5DnkWNXqahcGcDknEScKeoEuANt"
+charcoin = "ai3YXqGx4AprHym5YRcjMBnXhnB7NuW7QnQhkQNEFi1"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "localnet"  
+cluster = "devnet"  
 wallet = "~/.config/solana/id.json"
 
 [scripts]
