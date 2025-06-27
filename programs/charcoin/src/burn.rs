@@ -1,4 +1,4 @@
-use crate::ConfigAccount;
+use crate::{ConfigAccount, CustomError};
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::clock::Clock;
 use anchor_spl::token_interface::{Mint, TokenAccount};
@@ -29,11 +29,7 @@ pub struct ExecuteBuyback<'info> {
     pub token_program: Program<'info, Token>,
 }
 
-#[error_code]
-pub enum CustomError {
-    #[msg("No tokens available for buyback.")]
-    NoTokensToBuyback,
-}
+
 // this function will be run in the backend inside a cron job
 pub fn execute_buyback(ctx: Context<ExecuteBuyback>) -> Result<()> {
     let tokens_to_buy = ctx.accounts.burn_wallet_ata.amount;

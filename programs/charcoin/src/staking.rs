@@ -2,14 +2,14 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::clock::Clock;
 use anchor_spl::token_2022::{transfer_checked, Token2022 as Token, TransferChecked};
 use anchor_spl::token_interface::{TokenAccount,Mint};
-use crate::ConfigAccount;
+use crate::{ConfigAccount, CustomError};
 // const FOURTY_EIGHT_HOURS_IN_SECONDS:u32 = 172800;
 const FOURTY_EIGHT_HOURS_IN_SECONDS:u32 = 1;
 // const ONE_DAY_IN_SECONDS:u32 = 86400;
 const ONE_DAY_IN_SECONDS:u32 = 1;
 
 pub fn stake_tokens(ctx: Context<Stake>, amount: u64, lockup: u16) -> Result<()> {
-    require!(amount > 0, StakingError::NoStakedTokens);
+    require!(amount > 0, CustomError::NoStakedTokens);
     let staking_pool = &mut ctx.accounts.staking_pool;
     let config_account = &mut ctx.accounts.config_account;
     let user = &mut ctx.accounts.user;
@@ -20,10 +20,10 @@ pub fn stake_tokens(ctx: Context<Stake>, amount: u64, lockup: u16) -> Result<()>
             .stake_lockup_reward_array
             .iter()
             .any(|x| x.lockup_days == lockup),
-        StakingError::WrongStakingPackage
+        CustomError::WrongStakingPackage
     );
-    require!(user_stake.amount == 0, StakingError::AlreadyStaked);
-    require!(user_stake.unstaked_at == 0, StakingError::AlreadyUnStaked);
+    require!(user_stake.amount == 0, CustomError::AlreadyStaked);
+    require!(user_stake.unstaked_at == 0, CustomError::AlreadyUnStaked);
     let clock = Clock::get()?.unix_timestamp as u64;
     // Transfer tokens from user to pool
     let cpi_accounts = TransferChecked {
@@ -80,12 +80,12 @@ pub fn stake_tokens(ctx: Context<Stake>, amount: u64, lockup: u16) -> Result<()>
 pub fn request_unstake_tokens(ctx: Context<UnstakeRequest>, _stake_id: u64) -> Result<()> {
     let user_stake = &mut ctx.accounts.user_stake;
 
-    require!(user_stake.amount > 0, StakingError::NoStakedTokens);
+    require!(user_stake.amount > 0, CustomError::NoStakedTokens);
     require!(
         user_stake.unstake_requested_at == 0,
-        StakingError::UnstakeAlreadyRequested
+        CustomError::UnstakeAlreadyRequested
     );
-    require!(user_stake.unstaked_at == 0, StakingError::AlreadyUnStaked);
+    require!(user_stake.unstaked_at == 0, CustomError::AlreadyUnStaked);
 
     user_stake.unstake_requested_at = Clock::get()?.unix_timestamp as u64;
     msg!(
@@ -102,23 +102,23 @@ pub fn unstake_tokens(ctx: Context<Unstake>, _stake_id: u64) -> Result<()> {
     let user_stake = &mut ctx.accounts.user_stake;
     let staking_pool = &mut ctx.accounts.staking_pool;
 
-    require!(user_stake.unstaked_at == 0, StakingError::AlreadyUnStaked);
+    require!(user_stake.unstaked_at == 0, CustomError::AlreadyUnStaked);
 
     let clock = Clock::get()?.unix_timestamp as u64;
 
     require!(
         user_stake.unstake_requested_at != 0,
-        StakingError::RequestUnstakeFirst
+        CustomError::RequestUnstakeFirst
     );
     // unstake must be requested at least 48 hours in advance..
     require!(
         clock >= user_stake.unstake_requested_at + FOURTY_EIGHT_HOURS_IN_SECONDS as u64, 
-        StakingError::WaitFor48Hours
+        CustomError::WaitPeriodNotOverYet
     ); 
     
 
     // Check if user has staked tokens
-    require!(user_stake.amount > 0, StakingError::NoStakedTokens);
+    require!(user_stake.amount > 0, CustomError::NoStakedTokens);
 
     let min_staking_duration = (user_stake.lockup as u64 * ONE_DAY_IN_SECONDS as u64).try_into().unwrap();
     let staking_duration = clock.saturating_sub(user_stake.staked_at);
@@ -145,10 +145,11 @@ pub fn unstake_tokens(ctx: Context<Unstake>, _stake_id: u64) -> Result<()> {
     .vote_power;
 
     let vote_weight = (vote_power as u128 * user_stake.amount as u128 / 1000) as u64;
-
-    user.voting_power -= vote_weight;
-
-
+    if user.voting_power > vote_weight{
+        user.voting_power = user.voting_power
+         .checked_sub(vote_weight)
+            .ok_or(CustomError::MathError)?;
+    }
 
     // Create PDA signer seeds
     let pool_seeds = &[
@@ -196,15 +197,15 @@ pub fn unstake_tokens(ctx: Context<Unstake>, _stake_id: u64) -> Result<()> {
 pub fn claim_reward(ctx: Context<ClaimReward>, _stake_id: u64) -> Result<()> {
     require!(
         ctx.accounts.staking_reward_ata.amount > 0,
-        StakingError::StakingRewardInsufficientBalance
+        CustomError::StakingRewardInsufficientBalance
     );
     let staking_pool = &mut ctx.accounts.staking_pool;
 
     let user = &mut ctx.accounts.user;
     let user_stake = &mut ctx.accounts.user_stake;
 
-    require!(user_stake.amount > 0, StakingError::NoStakedTokens);
-    require!(staking_pool.total_staked > 0, StakingError::NoStakedTokens);
+    require!(user_stake.amount > 0, CustomError::NoStakedTokens);
+    require!(staking_pool.total_staked > 0, CustomError::NoStakedTokens);
     let clock = Clock::get()?.unix_timestamp as u64;
     let min_staking_duration = (user_stake.lockup as u64) * ONE_DAY_IN_SECONDS as u64; // days in seconds
     let staking_duration: u64;
@@ -222,15 +223,15 @@ pub fn claim_reward(ctx: Context<ClaimReward>, _stake_id: u64) -> Result<()> {
             .try_into()
             .unwrap();
     }
-    require!(staking_duration > 0, StakingError::NothingToClaim);
+    require!(staking_duration > 0, CustomError::NothingToClaim);
 
     let total_periods_earned = staking_duration as u64 / min_staking_duration;
     require!(
         total_periods_earned > user_stake.current_period,
-        StakingError::StakingPeriodNotMet
+        CustomError::StakingPeriodNotMet
     );
     let claimable_periods = total_periods_earned.saturating_sub(user_stake.current_period);
-    require!(claimable_periods > 0, StakingError::StakingPeriodNotMet);
+    require!(claimable_periods > 0, CustomError::StakingPeriodNotMet);
 
     user_stake.current_period = total_periods_earned;
 
@@ -238,12 +239,12 @@ pub fn claim_reward(ctx: Context<ClaimReward>, _stake_id: u64) -> Result<()> {
         .stake_lockup_reward_array
         .iter()
         .find(|x| x.lockup_days == user_stake.lockup)
-        .ok_or(StakingError::WrongStakingPackage)?
+        .ok_or(CustomError::WrongStakingPackage)?
         .reward_bps;
 
     let reward_amount =
         (claimable_periods * (user_stake.amount as u64) * reward_percentage as u64) / 1000;
-    require!(reward_amount > 0, StakingError::NothingToClaim);
+    require!(reward_amount > 0, CustomError::NothingToClaim);
 
     let seeds: &[&[u8]] = &[
         b"staking_reward",
@@ -499,19 +500,12 @@ pub struct UnstakeRequest<'info> {
     )]
     pub staking_pool: Account<'info, StakingPool>,
     #[account(
-    mut,
+        mut,
         seeds = [b"user_stake".as_ref(), user_authority.key().as_ref(),stake_id.to_le_bytes().as_ref()],
         bump
     )]
     pub user_stake: Account<'info, UserStakesEntry>,
-    #[account(
-        mut,
-        seeds = [b"user".as_ref(), user_authority.key().as_ref()],
-        bump = user.bump,
-        constraint = user.authority == user_authority.key(),
-        constraint = user.staking_pool == staking_pool.key()
-    )]
-    pub user: Account<'info, UserStakeInfo>,
+ 
 
     #[account(mut)]
     pub user_authority: Signer<'info>,
@@ -621,34 +615,4 @@ pub struct UserStakesEntry {
     pub unstake_requested_at: u64,
     pub current_period: u64,
     pub unstaked_at: u64,
-}
-
-#[error_code]
-pub enum StakingError {
-    #[msg("User has no staked tokens")]
-    NoStakedTokens,
-    #[msg("Staking period has not been met yet")]
-    StakingPeriodNotMet,
-    #[msg("Wrong Staking Package")]
-    WrongStakingPackage,
-    #[msg("Reward has already been claimed")]
-    RewardAlreadyClaimed,
-    #[msg("Already Staked")]
-    AlreadyStaked,
-    #[msg("Already un Staked")]
-    AlreadyUnStaked,
-    #[msg("Wait For 48 Hours")]
-    WaitFor48Hours,
-    #[msg("Request Unstake First")]
-    RequestUnstakeFirst,
-    #[msg("Unstake Already Requested")]
-    UnstakeAlreadyRequested,
-    #[msg("Reward Overflow")]
-    RewardOverflow,
-    #[msg("Invalid Stake Id")]
-    InvalidStakeId,
-    #[msg("Nothing To Claim")]
-    NothingToClaim,
-    #[msg("Staking Reward Insufficient Balance")]
-    StakingRewardInsufficientBalance,
 }
