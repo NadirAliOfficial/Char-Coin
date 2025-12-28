@@ -22,4 +22,3 @@ anchor deploy --provider.cluster mainnet-beta
 MIT
 <!-- updated: 2025-11-17-r01 -->
 
-
