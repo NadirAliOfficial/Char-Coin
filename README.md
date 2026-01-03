@@ -20,3 +20,4 @@ anchor deploy --provider.cluster mainnet-beta
 
 ## License
 MIT
+<!-- updated: 2026-01-03-02 -->
